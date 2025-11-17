@@ -85,8 +85,13 @@ services:
         environment:
             - DEFAULT_PW=adminADMIN! 
             - TZ=America/New_York
-              # context.xml doesn't seem to be able to pick up environment variables directly, so we are passing them in as CATALINA_OPTS
+              # Config variables loaded through Tomacat server.xml
             - CATALINA_OPTS= -Ddatasource.url=jdbc:postgresql://db.openelis.org:5432/clinlims -Ddatasource.username=clinlims -Ddatasource.password=${OE_DB_PASSWORD} -Doe.ssl.truststorepath=${SSL_TRUSTSTORE_PATH} -Doe.ssl.truststorepassword=${SSL_TRUSTSTORE_PASSWORD} -Doe.ssl.keystorepath=${SSL_KEYSTORE_PATH} -Doe.ssl.keystorepassword=${SSL_KEYSTORE_PASSWORD}
+             # Env variables passed to the common properties file
+            - SSL_KEYSTORE_PATH
+            - SSL_KEYSTORE_PASSWORD
+            - SSL_TRUSTSTORE_PATH
+            - SSL_TRUSTSTORE_PASSWORD
         volumes:
             -  key_trust-store-volume:/etc/openelis-global
             - ./volumes/plugins/:/var/lib/openelis-global/plugins
@@ -122,7 +127,10 @@ services:
                       -Djavax.net.ssl.keyStore=${SSL_KEYSTORE_PATH}
                       -Djavax.net.ssl.keyStorePassword=${SSL_KEYSTORE_PASSWORD}
                       -Djavax.net.ssl.keyStoreType=pkcs12"
+          # Config variables loaded through Tomacat server.xml            
           CATALINA_OPTS: "-Dhapi.ssl.truststorepath=${SSL_TRUSTSTORE_PATH} -Dhapi.ssl.truststorepassword=${SSL_TRUSTSTORE_PASSWORD} -Dhapi.ssl.keystorepath=${SSL_KEYSTORE_PATH} -Dhapi.ssl.keystorepassword=${SSL_KEYSTORE_PASSWORD}"  
+          # Config variables loaded through Hapi application.yml
+          FHIR_DATASOURCE_URL : "jdbc:postgresql://db.openelis.org:5432/clinlims?currentSchema=clinlims"
           FHIR_DATASOURCE_USERNAME: "clinlims"
           FHIR_DATASOURCE_PASSWORD: ${OE_DB_PASSWORD}
           FHIR_SERVER_ADRESS: "http://fhir.openelis.org:8080/fhir/"
