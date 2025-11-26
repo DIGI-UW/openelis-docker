@@ -101,6 +101,8 @@ services:
             - ./volumes/analyzer/analyzer-test-map.csv:/var/lib/openelis-global/analyzer/analyzer-test-map.csv
             - ./volumes/odoo/odoo-test-product-mapping.csv:/var/lib/openelis-global/odoo/odoo-test-product-mapping.csv
             - ./volumes/ocl:/var/lib/openelis-global/ocl
+            - ./volumes/programs/:/var/lib/openelis-global/programs
+            - ./volumes/configuration:/var/lib/openelis-global/configuration
             -  lucene_index-vol:/var/lib/lucene_index
         secrets:
             - source: common.properties
