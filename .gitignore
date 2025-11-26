@@ -22,3 +22,5 @@ bin-release/
 # local log folders
 volumes/logs/
 volumes/database/data/
+**/*checksum*.properties
+**/*checksums*.properties
