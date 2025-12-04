@@ -23,8 +23,8 @@ You can find more information on how to set up OpenELIS at our [docs page](http:
 
 | Instance  |     URL       | credentials (user: password)|
 |---------- |:-------------:|------:                       |
-| Legacy UI   |  https://localhost/api/OpenELIS-Global/  | admin: adminADMIN! |
 | New React UI  |    https://localhost/  |  admin: adminADMIN!
+
 
 ## OFFLINE INSTALLTION
 
