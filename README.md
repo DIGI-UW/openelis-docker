@@ -16,7 +16,7 @@ You can find more information on how to set up OpenELIS at our [docs page](http:
 
 1. Update the Enviroment vaiable `ADMIN_PASSWORD` in the [.env](./.env) file for the 'admin' user
 
-### Running OpenELIS Global 3x with docker-compose
+### Running OpenELIS Global with docker-compose
     docker-compose up -d
 
 #### The Instance can be accessed at 
