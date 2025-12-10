@@ -20,7 +20,7 @@ bin-release/
 *.idea
 
 # local log folders
-volumes/logs/
-volumes/database/data/
+configs/logs/
+configs/database/data/
 **/*checksum*.properties
 **/*checksums*.properties

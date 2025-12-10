@@ -50,13 +50,13 @@ services:
             - "15432:5432"
         restart: always
         env_file:
-            - ./volumes/database/database.env
+            - ./configs/database/database.env
         environment:
             - DB_PASSWORD=${OE_DB_PASSWORD}
             - DB_SUPERUSER_PASSWORD=${ADMIN_PASSWORD}   
         volumes:
               # preserves the database between containers
-            - ./volumes/database/data:/var/lib/postgresql/data                
+            - ./configs/database/data:/var/lib/postgresql/data                
 
         logging: *local-logging    
         networks:
@@ -95,15 +95,15 @@ services:
         volumes:
             -  key_trust-store-volume:/etc/openelis-global
             -  lucene_index-vol:/var/lib/lucene_index
-            - ./volumes/plugins/:/var/lib/openelis-global/plugins
-            - ./volumes/logs/oeLogs:/var/lib/openelis-global/logs
-            - ./volumes/logs/tomcatLogs/:/usr/local/tomcat/logs
-            - ./volumes/properties/SystemConfiguration.properties:/var/lib/openelis-global/properties/SystemConfiguration.properties
-            - ./volumes/analyzer/analyzer-test-map.csv:/var/lib/openelis-global/analyzer/analyzer-test-map.csv
-            - ./volumes/odoo/odoo-test-product-mapping.csv:/var/lib/openelis-global/odoo/odoo-test-product-mapping.csv
-            - ./volumes/programs/:/var/lib/openelis-global/programs
-            - ./volumes/configuration:/var/lib/openelis-global/configuration
-            - ./volumes/menu/menu_config.json:/var/lib/openelis-global/menu/menu_config.json
+            - ./configs/plugins/:/var/lib/openelis-global/plugins
+            - ./configs/logs/oeLogs:/var/lib/openelis-global/logs
+            - ./configs/logs/tomcatLogs/:/usr/local/tomcat/logs
+            - ./configs/properties/SystemConfiguration.properties:/var/lib/openelis-global/properties/SystemConfiguration.properties
+            - ./configs/analyzer/analyzer-test-map.csv:/var/lib/openelis-global/analyzer/analyzer-test-map.csv
+            - ./configs/odoo/odoo-test-product-mapping.csv:/var/lib/openelis-global/odoo/odoo-test-product-mapping.csv
+            - ./configs/programs/:/var/lib/openelis-global/programs
+            - ./configs/configuration:/var/lib/openelis-global/configuration
+            - ./configs/menu/menu_config.json:/var/lib/openelis-global/menu/menu_config.json
         secrets:
             - source: common.properties
             
@@ -162,7 +162,7 @@ services:
         volumes:
             - certs-vol:/etc/nginx/certs/
             - keys-vol:/etc/nginx/keys/
-            - ./volumes/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+            - ./configs/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
             # - /KEYSTORE_PASSWORD:/etc/nginx/private/key_pass
             # - /etc/openelis-global/nginx.cert.pem:/etc/nginx/certs/cert.crt
             # - /etc/openelis-global/nginx.key.pem:/etc/nginx/certs/cert.key
@@ -189,7 +189,7 @@ services:
             
 secrets: 
   common.properties:
-    file:  ./volumes/properties/common.properties 
+    file:  ./configs/properties/common.properties 
 
 networks:
   openelis-network:
