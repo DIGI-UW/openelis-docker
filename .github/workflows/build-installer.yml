@@ -4,17 +4,72 @@ on:
     types: [published] 
     
 jobs:
+  update-docker-tags:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Extract release tag
+        id: release_tag
+        run: |
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "Release tag: ${TAG_NAME}"
+
+      - name: Update docker-compose.yml to use release tags
+        run: |
+          RELEASE_TAG="${{ steps.release_tag.outputs.TAG_NAME }}"
+          # Update all :develop tags to the release tag
+          sed -i.bak "s/:develop/:${RELEASE_TAG}/g" docker-compose.yml
+          rm docker-compose.yml.bak
+          echo "Updated docker-compose.yml with release tag: ${RELEASE_TAG}"
+          # Show the changes
+          git diff docker-compose.yml || true
+
+      - name: Commit and update release tag
+        run: |
+          RELEASE_TAG="${{ steps.release_tag.outputs.TAG_NAME }}"
+          
+          git add docker-compose.yml
+          if ! git diff --staged --quiet; then
+            # Create a new commit with updated docker-compose.yml
+            git commit -m "chore: update image tags to ${RELEASE_TAG} for release"
+            
+            # Update the tag to point to the new commit
+            git tag -f ${RELEASE_TAG}
+            git push origin ${RELEASE_TAG} --force
+            echo "Updated release tag ${RELEASE_TAG} with docker-compose.yml changes"
+          else
+            echo "No changes to commit (docker-compose.yml already has release tags)"
+          fi
+
   build-installer-and-upload-installer:
+    needs: [update-docker-tags]
     runs-on: ubuntu-latest
     steps:
 
       - name: Checkout OpenELIS-Global2
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           repository: ${{github.repository}}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build installer
-        run: ./build.sh ${{github.ref_name}} ${{github.ref_name}}
+        run: ./build.sh ${{ github.event.release.tag_name }} ${{ github.event.release.tag_name }}
 
       - name: check installer
         run: ls OEDockerInstaller  
