@@ -173,6 +173,34 @@ services:
         logging: *local-logging    
         depends_on:
             - certs    
+
+    astm-http-bridge:
+        container_name: astm-http-bridge
+        image: itechuw/astm-http-bridge:2.3.6
+        platform: linux/amd64
+        pull_policy: always
+        ports:
+            - "8445:8443"
+            - "12001:12001"
+        volumes:
+            - ./configs/astm/configuration.yml:/app/configuration.yml
+            -  key_trust-store-volume:/etc/openelis-global
+        environment:
+            SPRING_PROFILE: dev
+            LOGGING_LEVEL_ORG_ITECH: TRACE
+            JAVA_OPTS: | 
+                -Djavax.net.ssl.trustStore=/etc/openelis-global/truststore 
+                -Djavax.net.ssl.trustStorePassword=tspass
+                -Djavax.net.ssl.trustStoreType=pkcs12
+        logging: *local-logging
+        networks:
+            - openelis-network
+        healthcheck:
+            test: ["CMD", "/app/healthcheck.sh"]
+            timeout: 10s
+            interval: 30s
+            retries: 3
+            start_period: 2m        
    
     autoheal:
         container_name: autoheal-oe
