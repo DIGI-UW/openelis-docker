@@ -1,1 +1,3 @@
-description,localAbbreviation,domain,isActive,sortOrder,englishName,frenchName
+description,localAbbreviation,domain,isActive,sortOrder,localization:en,localization:fr,localization:es,localization:id
+
+
