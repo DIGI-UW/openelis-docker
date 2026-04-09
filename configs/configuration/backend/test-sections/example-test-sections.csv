@@ -1,1 +1,1 @@
-testSectionName,description,isActive,sortOrder,isExternal,englishName,frenchName
+testSectionName,description,isActive,sortOrder,isExternal,localization:en,localization:fr,localization:es,localization:id
