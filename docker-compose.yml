@@ -105,6 +105,7 @@ services:
             - ./configs/configuration:/var/lib/openelis-global/configuration
             - ./configs/menu/menu_config.json:/var/lib/openelis-global/menu/menu_config.json
             - ./configs/branding:/var/lib/openelis-global/branding
+            - ./configs/nce-attachments:/var/lib/openelis-global/nce-attachments  # NCE file attachments
         secrets:
             - source: common.properties
             
