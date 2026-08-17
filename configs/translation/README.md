@@ -3,9 +3,18 @@
 Files here override the UI's bundled translations, so this deployment can reword
 any string in the interface without rebuilding the frontend image.
 
-Nothing here takes effect until `OVERRIDE_DEFAULT_TRANSLATION=true` is set in
-`../properties/SystemConfiguration.properties`. With it unset or false the UI
-uses the shipped wording and does not even request these files.
+Nothing here takes effect until overriding is switched on. Either way works:
+
+- **From the UI** — Admin -> Site Information Menu
+  (`/MasterListsPage/SiteInformationMenu`), the `overrideDefaultTranslation`
+  row: select it, press Modify, choose `true`, Save. Takes effect immediately,
+  with no restart.
+- **From the properties file** — `OVERRIDE_DEFAULT_TRANSLATION=true` in
+  `../properties/SystemConfiguration.properties`, which wins over the UI and
+  needs a backend restart.
+
+Left alone it is `false`: the UI uses the shipped wording and does not even
+request these files.
 
 ## Files
 
