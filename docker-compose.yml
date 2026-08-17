@@ -149,6 +149,13 @@ services:
         platform: linux/amd64
         networks:
             - openelis-network
+        volumes:
+            # Translations this deployment supplies for itself, layered over the
+            # bundled ones per message id when OVERRIDE_DEFAULT_TRANSLATION is
+            # set in configs/properties/SystemConfiguration.properties. Served as
+            # /translation/<locale>.json; a locale with no file here keeps its
+            # shipped wording.
+            - ./configs/translation:/usr/share/nginx/html/translation:ro
         environment:
             - CHOKIDAR_USEPOLLING=true
         logging: *local-logging    
