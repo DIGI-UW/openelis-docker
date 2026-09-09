@@ -75,11 +75,13 @@ class DeploymentTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "checklist"):
                 deployment.verify_review()
 
-    def test_failed_startup_keeps_previous_ready_identity_and_diagnostics(self):
+    def test_failed_startup_withdraws_stale_ready_identity_and_keeps_it_in_diagnostics(self):
         with patch.object(deployment, "run", side_effect=self.command), patch.object(deployment.subprocess, "run"):
             with self.assertRaisesRegex(RuntimeError, "did not become ready"):
                 deployment.deploy(self.request, self.diagnostics)
-        self.assertEqual("previous-ready", json.loads(self.target.read_text())["deploymentId"])
+        self.assertFalse(self.target.exists())
+        self.assertEqual("previous-ready",
+                         json.loads((self.diagnostics / "previous-target.json").read_text())["deploymentId"])
         self.assertFalse(json.loads((self.diagnostics / "readiness.json").read_text())["ready"])
         self.assertTrue((self.diagnostics / "compose-status.txt").exists())
         self.assertTrue((self.diagnostics / "service-logs.txt").exists())
@@ -90,7 +92,7 @@ class DeploymentTest(unittest.TestCase):
         with patch.object(deployment, "run", side_effect=self.command), patch.object(deployment.subprocess, "run"):
             with self.assertRaisesRegex(ValueError, "does not match"):
                 deployment.deploy(self.request, self.diagnostics)
-        self.assertEqual("previous-ready", json.loads(self.target.read_text())["deploymentId"])
+        self.assertFalse(self.target.exists())
 
     def test_ready_identity_requires_both_running_digests_and_health(self):
         # Exercise the same HTTP probe as deployment, without a live VM or Docker.

@@ -8,6 +8,7 @@ import importlib.util
 import json
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -101,6 +102,10 @@ def deploy(request, diagnostics):
     compose += ["-f", str(override)]
     try:
         run(compose + ["pull", *SERVICES], app_dir)
+        target_path = review / "target.json"
+        if target_path.is_file():
+            shutil.copy2(target_path, diagnostics / "previous-target.json")
+            target_path.unlink()
         run(compose + ["up", "-d"], app_dir)
         images = {}
         for service, reference in manifest["images"].items():
@@ -124,7 +129,7 @@ def deploy(request, diagnostics):
         if review_identity:
             target["harnessSha"] = review_identity["harnessSha"]
             target["reviewTooling"] = review_identity
-        write_json(review / "target.json", target)
+        write_json(target_path, target)
         write_json(diagnostics / "target.json", target)
         print(f"Testing is ready at {manifest['appSha']}", flush=True)
     finally:

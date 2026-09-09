@@ -10,10 +10,12 @@ running container's image ID. It then waits up to 300 seconds for HTTP 200 JSON
 with `status: UP` at the configured health endpoint. Redirects, login HTML,
 container start alone, and a health response from an earlier image cannot pass.
 Status, bounded backend/proxy logs, readiness results, and any verified identity
-are attached to the Actions run. Successful readiness publishes
+are attached to the Actions run. Just before restarting containers, the prior
+ready identity moves into the diagnostic artifact and is withdrawn from the
+public endpoint. Successful readiness publishes
 `https://testing.openelis-global.org/__review/target.json` atomically. A failure
-leaves the previous ready identity intact; it does not claim the failed
-candidate is ready or automatically roll back database migrations.
+therefore cannot advertise either the failed candidate or the prior application
+as currently ready, and it does not automatically roll back database migrations.
 
 The existing server `.env` must contain its certificate paths and names. A
 conflicting local infrastructure change stops deployment for inspection; the
