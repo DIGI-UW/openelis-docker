@@ -1,0 +1,110 @@
+import importlib.util
+import io
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import test_readiness
+
+spec = importlib.util.spec_from_file_location("deployment", Path(__file__).with_name("deploy-testing.py"))
+deployment = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(deployment)
+
+
+class DeploymentTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        (self.root / ".env").write_text("SERVER_SECRET=keep-existing-value\n")
+        self.diagnostics = self.root / "diagnostics"
+        self.diagnostics.mkdir()
+        self.target = self.root / "configs/testing-review/target.json"
+        self.target.parent.mkdir(parents=True)
+        self.target.write_text('{"deploymentId":"previous-ready"}')
+        self.sha = "a" * 40
+        self.request = {"manifest": {"appSha": self.sha, "appBranch": "develop", "images": {
+            service: repository + "@sha256:" + "b" * 64 for service, repository in deployment.SERVICES.items()}},
+            "deploy_path": str(self.root), "infra_sha": self.sha, "run_id": "123-1",
+            "readiness": {"url": "http://127.0.0.1:1/health", "timeout": 0.02, "interval": 0.01}}
+        self.wrong_image = False
+
+    def command(self, args, _cwd, capture=False):
+        if args == ["git", "rev-parse", "HEAD"]:
+            return self.sha
+        if "ps" in args:
+            return "container-id"
+        if args[:2] == ["docker", "inspect"]:
+            return json.dumps([{"State": {"Running": True}, "Image": "wrong" if self.wrong_image else "sha256:actual"}])
+        if args[:3] == ["docker", "image", "inspect"]:
+            return json.dumps([{"Id": "sha256:actual"}])
+        return ""
+
+    def test_mutable_missing_and_foreign_images_are_rejected(self):
+        manifest = self.request["manifest"]
+        for value in ["itechuw/openelis-global-2:develop", "attacker/image@sha256:" + "b" * 64]:
+            manifest["images"]["oe.openelis.org"] = value
+            with self.assertRaises(ValueError):
+                deployment.validate_manifest(manifest)
+        del manifest["images"]["oe.openelis.org"]
+        with self.assertRaises(ValueError):
+            deployment.validate_manifest(manifest)
+
+    def test_invalid_readiness_contract_is_rejected_before_deployment(self):
+        self.request["readiness"]["timeout"] = 0
+        with patch.object(deployment, "run") as command:
+            with self.assertRaises(ValueError):
+                deployment.deploy(self.request, self.diagnostics)
+            command.assert_not_called()
+
+    def test_review_requires_a_matching_widget_and_dedicated_checklist(self):
+        widget = b"verified widget"
+        identity = {"harnessSha": self.sha, "widgetSha256": deployment.hashlib.sha256(widget).hexdigest()}
+        responses = [json.dumps(identity).encode(), widget, b'{"sections":[{"steps":[{"key":"TESTING-001"}]}]}']
+        with patch.object(deployment.urllib.request, "urlopen", side_effect=[io.BytesIO(body) for body in responses]):
+            self.assertEqual(identity, deployment.verify_review())
+        responses[1] = b"stale widget"
+        with patch.object(deployment.urllib.request, "urlopen", side_effect=[io.BytesIO(body) for body in responses]):
+            with self.assertRaisesRegex(ValueError, "differs"):
+                deployment.verify_review()
+        responses[1] = widget
+        responses[2] = b'{"sections":[]}'
+        with patch.object(deployment.urllib.request, "urlopen", side_effect=[io.BytesIO(body) for body in responses]):
+            with self.assertRaisesRegex(ValueError, "checklist"):
+                deployment.verify_review()
+
+    def test_failed_startup_keeps_previous_ready_identity_and_diagnostics(self):
+        with patch.object(deployment, "run", side_effect=self.command), patch.object(deployment.subprocess, "run"):
+            with self.assertRaisesRegex(RuntimeError, "did not become ready"):
+                deployment.deploy(self.request, self.diagnostics)
+        self.assertEqual("previous-ready", json.loads(self.target.read_text())["deploymentId"])
+        self.assertFalse(json.loads((self.diagnostics / "readiness.json").read_text())["ready"])
+        self.assertTrue((self.diagnostics / "compose-status.txt").exists())
+        self.assertTrue((self.diagnostics / "service-logs.txt").exists())
+        self.assertIn("keep-existing-value", (self.root / ".env").read_text())
+
+    def test_wrong_running_image_cannot_publish_ready(self):
+        self.wrong_image = True
+        with patch.object(deployment, "run", side_effect=self.command), patch.object(deployment.subprocess, "run"):
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                deployment.deploy(self.request, self.diagnostics)
+        self.assertEqual("previous-ready", json.loads(self.target.read_text())["deploymentId"])
+
+    def test_ready_identity_requires_both_running_digests_and_health(self):
+        # Exercise the same HTTP probe as deployment, without a live VM or Docker.
+        test_readiness.ReadinessTest.setUpClass()
+        self.addCleanup(test_readiness.ReadinessTest.tearDownClass)
+        test_readiness.ReadinessTest.server.response = (200, "application/json", b'{"status": "UP"}')
+        self.request["readiness"].update(url=test_readiness.ReadinessTest.url, timeout=1)
+        with patch.object(deployment, "run", side_effect=self.command), patch.object(deployment.subprocess, "run"):
+            deployment.deploy(self.request, self.diagnostics)
+        target = json.loads(self.target.read_text())
+        self.assertEqual(self.sha, target["appSha"])
+        self.assertEqual(5, len(target["images"]))
+        self.assertTrue(target["verification"]["readiness"]["ready"])
+
+
+if __name__ == "__main__":
+    unittest.main()

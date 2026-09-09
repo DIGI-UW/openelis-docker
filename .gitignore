@@ -26,3 +26,6 @@ configs/database/data/
 **/*checksums*.properties
 configs/properties/TotalSystemConfiguration.properties
 configs/properties/ChangedSystemConfiguration.properties
+configs/testing-review/target.json
+configs/testing-review/deployment-images.json
+__pycache__/

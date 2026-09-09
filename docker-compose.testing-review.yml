@@ -1,0 +1,5 @@
+# Enable after the testing checklist and submission route exist centrally.
+services:
+  proxy:
+    volumes:
+      - ./configs/testing-review-widget.conf:/etc/nginx/review/widget.conf:ro

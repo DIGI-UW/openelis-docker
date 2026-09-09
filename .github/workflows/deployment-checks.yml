@@ -1,0 +1,12 @@
+name: Deployment contract
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  deployment-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify readiness and manifest contracts
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v

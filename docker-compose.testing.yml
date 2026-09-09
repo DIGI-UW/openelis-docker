@@ -1,0 +1,5 @@
+# Testing-only Review integration. The shared stack has no widget by default.
+services:
+  proxy:
+    volumes:
+      - ./configs/testing-review:/etc/nginx/review:ro
