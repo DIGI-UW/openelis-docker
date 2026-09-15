@@ -47,6 +47,26 @@ Example: serving real certs from `/home/ubuntu/certs2026/cert.crt` and `cert.key
 ### Running OpenELIS Global with docker-compose
     docker-compose up -d
 
+### Optional Review guide
+
+Review is disabled by default. The proxy mounts `./configs/review` read-only at
+`/etc/nginx/review`; set `REVIEW_CONFIG_DIR` to use another persistent host
+directory. An empty directory makes no change to application responses.
+
+The proxy includes `active/server/*.conf` inside its HTTPS server and
+`active/html/*.conf` inside its frontend location. [OpenELIS Review tooling's
+site command](https://github.com/DIGI-UW/openelis-review-tooling/pull/30) owns the
+files and the `active` symlink. It enables, disables and verifies Review by
+testing and reloading Nginx, without restarting application services. Review
+content and suggestions remain editable in Grist.
+
+Existing installations with manually injected Review directives need a one-time
+migration: preserve those settings, remove the old injection and submission
+blocks, install these hooks and mount, and verify the enabled configuration.
+Keep Review configuration in its persistent directory, not in generated image
+overrides, so normal application updates retain it. Do not commit site settings
+or credentials.
+
 #### The Instance can be accessed at 
 
 | Instance  |     URL       | credentials (user: password)|
@@ -78,4 +98,3 @@ For offline Installtion,where theres no Intenet acess,
 
        
     
-
