@@ -26,3 +26,6 @@ configs/database/data/
 **/*checksums*.properties
 configs/properties/TotalSystemConfiguration.properties
 configs/properties/ChangedSystemConfiguration.properties
+
+# Optional Review configuration belongs to the deployment.
+configs/review/
