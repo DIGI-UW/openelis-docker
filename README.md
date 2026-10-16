@@ -116,6 +116,13 @@ version, the configuration files, the install scripts and
 
        ./upgrade.sh
 
+   Keep your existing `.env`: the package's `.env` carries the default
+   passwords, and `OE_ENCRYPTION_PASSWORD` must stay what it was (your
+   keystore password, when it was never set) or the connection passwords
+   saved in OpenELIS stop decrypting. If you take the package's
+   `docker-compose.yml` into an old installation, copy `configs/certs/` with
+   it: the `certs` service runs the script in there.
+
 To build a package yourself, run `./build.sh <version> <image tag>`: it pulls
 every image named in `docker-compose.yml` (with `:develop` replaced by the
 image tag), saves them into one archive and writes the installer to
