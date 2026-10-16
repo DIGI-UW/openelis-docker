@@ -1,104 +1,141 @@
 name: Build OpenELIS-Global-2 Offline Docker Images
+
+# Builds the offline installer and attaches it to the openelis-docker release
+# of the same version. It runs when a release is published here, when started
+# by hand for an OpenELIS-Global-2 release tag, and once a day for the latest
+# OpenELIS-Global-2 release that has no package yet (creating the matching
+# release here), so every release ships an offline package.
 on:
   release:
-    types: [published] 
-    
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: OpenELIS-Global-2 release tag to package (for example 3.2.3.0)
+        required: true
+  schedule:
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-installer
+  cancel-in-progress: false
+
 jobs:
-  update-docker-tags:
+  prepare:
+    name: Resolve the version and its release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      build: ${{ steps.resolve.outputs.build }}
     steps:
-      - name: Checkout release tag
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure Git
+      - name: Resolve the version to package
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          case "$EVENT" in
+            release) TAG="$RELEASE_TAG" ;;
+            workflow_dispatch) TAG="$INPUT_VERSION" ;;
+            *) TAG=$(gh api repos/DIGI-UW/OpenELIS-Global-2/releases/latest --jq .tag_name) ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version to package: $TAG"
+          if [ "$EVENT" = schedule ] && gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '_docker_installer.tar.gz$'; then
+            echo "release $TAG already has its offline package; nothing to do"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          for image in openelis-global-2 openelis-global-2-frontend openelis-global-2-fhir openelis-global-2-database openelis-global-2-proxy; do
+            if ! docker manifest inspect "itechuw/${image}:${TAG}" >/dev/null 2>&1; then
+              if [ "$EVENT" = schedule ]; then
+                echo "::warning::itechuw/${image}:${TAG} is not on Docker Hub yet; trying again tomorrow"
+                echo "build=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              echo "::error::itechuw/${image}:${TAG} is not on Docker Hub; publish the OpenELIS-Global-2 ${TAG} images first"
+              exit 1
+            fi
+          done
+          echo "build=true" >> "$GITHUB_OUTPUT"
+
+      - name: Pin the compose file to the version and tag it
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Extract release tag
-        id: release_tag
-        run: |
-          TAG_NAME="${{ github.event.release.tag_name }}"
-          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
-          echo "Release tag: ${TAG_NAME}"
-
-      - name: Update docker-compose.yml to use release tags
-        run: |
-          RELEASE_TAG="${{ steps.release_tag.outputs.TAG_NAME }}"
-          # Update all :develop tags to the release tag
-          sed -i.bak "s/:develop/:${RELEASE_TAG}/g" docker-compose.yml
-          rm docker-compose.yml.bak
-          echo "Updated docker-compose.yml with release tag: ${RELEASE_TAG}"
-          # Show the changes
-          git diff docker-compose.yml || true
-
-      - name: Commit and update release tag
-        run: |
-          RELEASE_TAG="${{ steps.release_tag.outputs.TAG_NAME }}"
-          
-          git add docker-compose.yml
-          if ! git diff --staged --quiet; then
-            # Create a new commit with updated docker-compose.yml
-            git commit -m "chore: update image tags to ${RELEASE_TAG} for release"
-            
-            # Update the tag to point to the new commit
-            git tag -f ${RELEASE_TAG}
-            git push origin ${RELEASE_TAG} --force
-            echo "Updated release tag ${RELEASE_TAG} with docker-compose.yml changes"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            git checkout -q "$TAG"
+            existing=true
           else
-            echo "No changes to commit (docker-compose.yml already has release tags)"
+            existing=false
+          fi
+          sed -i "s/:develop/:${TAG}/g" docker-compose.yml
+          git add docker-compose.yml
+          if git diff --staged --quiet; then
+            echo "docker-compose.yml already pinned to $TAG"
+          else
+            git commit -q -m "chore: update image tags to ${TAG} for release"
+          fi
+          if [ "$existing" = true ]; then
+            git tag -f "$TAG"
+            git push origin "$TAG" --force
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
           fi
 
-  build-installer-and-upload-installer:
-    needs: [update-docker-tags]
+      - name: Create the release when it does not exist
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG exists"
+          else
+            gh release create "$TAG" --title "OpenELIS-Global2 Docker ${TAG} Release" \
+              --notes "Offline installer for OpenELIS-Global-2 ${TAG}: https://github.com/DIGI-UW/OpenELIS-Global-2/releases/tag/${TAG}"
+          fi
+
+  build:
+    name: Build and attach the installer
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
-
-      - name: Checkout OpenELIS-Global2
+      - name: Checkout the release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
-          repository: ${{github.repository}}
-          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.tag }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build installer
-        run: ./build.sh ${{ github.event.release.tag_name }} ${{ github.event.release.tag_name }}
+        run: ./build.sh "${{ needs.prepare.outputs.tag }}" "${{ needs.prepare.outputs.tag }}"
 
-      - name: check installer
-        run: ls OEDockerInstaller  
-
-
-      - name: Find installer file
-        id: find_file
+      - name: Check the package holds every compose image
         run: |
-          # Find the file in OEDockerInstaller  with .tar.gz extension
-          FILE_PATH=$(find OEDockerInstaller  -name "*.tar.gz" -print -quit)
-          if [ -z "$FILE_PATH" ]; then
-            echo "No .tar.gz file found in OEDockerInstaller  directory."
-            exit 1
-          fi
-          echo "File path: $FILE_PATH"
-          # Extract the file name from the path
-          FILE_NAME=$(basename "$FILE_PATH")
-          echo "File name: $FILE_NAME"
-          # Pass the file path and name to outputs
-          echo "FILE_PATH=$FILE_PATH" >> $GITHUB_ENV
-          echo "FILE_NAME=$FILE_NAME" >> $GITHUB_ENV
+          ls -l OEDockerInstaller
+          FILE=$(find OEDockerInstaller -name "*.tar.gz" -print -quit)
+          tar -xzf "$FILE" --wildcards '*/dockerImage/images.txt' -O | tee images.txt
+          grep -q 'openelis-global-2-database' images.txt
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+      - name: Upload the installer to the release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ env.FILE_PATH }}
-          asset_name: ${{ env.FILE_NAME }}
-          asset_content_type: application/gzip  
- 
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILE=$(find OEDockerInstaller -name "*.tar.gz" -print -quit)
+          gh release upload "${{ needs.prepare.outputs.tag }}" "$FILE" --clobber

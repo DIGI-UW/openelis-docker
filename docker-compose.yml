@@ -32,15 +32,21 @@ services:
         image: itechuw/certgen:main
         platform: linux/amd64
         restart: "no"
+        # The image ships a keystore and truststore built with its own default
+        # passwords. ensure-stores.sh rebuilds them from the self-signed
+        # certificate whenever they do not open with the passwords in .env, so
+        # changing SSL_KEYSTORE_PASSWORD or SSL_TRUSTSTORE_PASSWORD there is enough.
         environment:
-            - KEYSTORE_PW="kspass"
-            - TRUSTSTORE_PW="tspass"
+            - KEYSTORE_PW=${SSL_KEYSTORE_PASSWORD}
+            - TRUSTSTORE_PW=${SSL_TRUSTSTORE_PASSWORD}
+        command: ["/bin/bash", "/opt/openelis/ensure-stores.sh"]
         networks:
             - openelis-network
         volumes:
             -  key_trust-store-volume:/etc/openelis-global
             -  keys-vol:/etc/ssl/private/
             -  certs-vol:/etc/ssl/certs/
+            - ./configs/certs/ensure-stores.sh:/opt/openelis/ensure-stores.sh:ro
 
     db.openelis.org:
         container_name: openelisglobal-database 
@@ -72,8 +78,10 @@ services:
         image: itechuw/openelis-global-2:develop 
         platform: linux/amd64  
         depends_on:
-            - db.openelis.org
-            - certs
+            db.openelis.org:
+                condition: service_started
+            certs:
+                condition: service_completed_successfully
         ports:
             - "8080:8080"
             - "8443:8443"
@@ -92,6 +100,9 @@ services:
             - SSL_KEYSTORE_PASSWORD
             - SSL_TRUSTSTORE_PATH
             - SSL_TRUSTSTORE_PASSWORD
+             # Key for secrets stored in the database; installs that predate
+             # OE_ENCRYPTION_PASSWORD keep using the keystore password
+            - OE_ENCRYPTION_PASSWORD=${OE_ENCRYPTION_PASSWORD:-${SSL_KEYSTORE_PASSWORD}}
         volumes:
             -  key_trust-store-volume:/etc/openelis-global
             -  lucene_index-vol:/var/lib/lucene_index
@@ -117,8 +128,10 @@ services:
             - "8081:8080"
             - "8444:8443"
         depends_on:
-            - db.openelis.org
-            - certs    
+            db.openelis.org:
+                condition: service_started
+            certs:
+                condition: service_completed_successfully
         networks:
             - openelis-network
         restart: always
@@ -147,6 +160,7 @@ services:
         image: itechuw/openelis-global-2-frontend:develop
         container_name: openelisglobal-front-end
         platform: linux/amd64
+        restart: always
         networks:
             - openelis-network
         volumes:

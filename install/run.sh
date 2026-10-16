@@ -1,29 +1,14 @@
 #!/bin/bash
-cd dockerImage
-gunzip -c OpenELIS-Global_DockerImage.tar.gz | docker load
-gunzip -c Postgres_DockerImage.tar.gz | docker load
-gunzip -c JPAServer_DockerImage.tar.gz | docker load
-gunzip -c AutoHeal_DockerImage.tar.gz | docker load
-gunzip -c NGINX_DockerImage.tar.gz | docker load
-gunzip -c ReactFrontend_DockerImage.tar.gz | docker load
-gunzip -c Certs_DockerImage.tar.gz | docker load
+# First installation: load the images shipped in this package, then start the
+# stack without contacting any registry. Run it from the unpacked installer.
+set -euo pipefail
+cd "$(dirname "$0")"
 
-cd .. 
+echo "loading the images from dockerImage/openelis-images.tar.gz (this takes a few minutes)"
+gunzip -c dockerImage/openelis-images.tar.gz | docker load
 
-# Check Docker version
-docker_version=$(docker --version | awk '{print $3}' | sed 's/,//') 
-major_version=$(echo "$docker_version" | cut -d'.' -f1)
-
-# Check if major version is 20 or higher (Docker CLI v2.x+)
-if [[ "$major_version" -ge 20 ]]; then
-    # Use "docker compose" (no dash)
-    compose_command="docker compose"
+if docker compose version >/dev/null 2>&1; then
+    docker compose up -d --pull never
 else
-    # Use "docker-compose" (with dash)
-    compose_command="docker-compose"
+    docker-compose up -d
 fi
-
-# Run docker-compose up -d or docker compose up -d based on version
-$compose_command up -d
-
-
