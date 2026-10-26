@@ -1,13 +1,22 @@
 #!/bin/bash
-# Builds the offline installer: the compose file with its image tags pinned
-# to dockerVersion, .env, configs, the install scripts and one archive holding
-# every image the compose file runs. The image list is read from the compose
-# file itself, so the package cannot miss an image the stack needs.
-# Usage: ./build.sh <projectVersion> <dockerVersion>
+# Builds the offline installer: the compose file pinned to an OpenELIS-Global-2
+# version and an analyser Bridge version, .env, configs, the install scripts
+# and one archive holding every image the compose file runs. The image list is
+# read from the pinned compose file itself, so the package cannot miss an
+# image the stack needs.
+# Usage: ./build.sh <openelis version> <bridge version>
+#   ./build.sh 3.3.0 3.4.1
+#   ./build.sh develop develop    (a test package of the develop images)
+# scripts/bridge-version-for.sh <openelis version> prints the Bridge release
+# an OpenELIS release was built with.
 set -euo pipefail
 
-projectVersion=${1:-"latest"}
-dockerVersion=${2:-"develop"}
+if [ $# -ne 2 ]; then
+    echo "usage: $0 <openelis version> <bridge version>" >&2
+    exit 2
+fi
+projectVersion=$1
+bridgeVersion=$2
 
 INSTALLER_CREATION_DIR="OEDockerInstaller"
 IMAGES_ARCHIVE="openelis-images.tar.gz"
@@ -39,9 +48,11 @@ echo "creating installer for context ${context}"
 mkdir -p "${stageDir}/dockerImage" "${stageDir}/configs"
 cp ./install/run.sh "${stageDir}/run.sh"
 cp ./install/upgrade.sh "${stageDir}/upgrade.sh"
-# Pin every :develop image to the requested version; a compose file that is
-# already pinned (release tags carry one) is copied unchanged.
-sed "s/:develop[[:space:]]*$/:${dockerVersion}/" docker-compose.yml > "${stageDir}/docker-compose.yml"
+cp docker-compose.yml "${stageDir}/docker-compose.yml"
+./scripts/pin-versions.sh "${projectVersion}" "${bridgeVersion}" "${stageDir}/docker-compose.yml"
+if [ "${projectVersion}" != "develop" ]; then
+    ./scripts/check-release-pins.sh "${stageDir}/docker-compose.yml"
+fi
 cp .env "${stageDir}/.env"
 cp -r configs/* "${stageDir}/configs"
 

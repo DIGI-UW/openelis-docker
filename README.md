@@ -85,12 +85,11 @@ the whole tree and name the files by their path inside it:
 Every OpenELIS-Global-2 release has a matching openelis-docker release with an
 offline package attached, built by the
 [Build OpenELIS-Global-2 Offline Docker Images](https://github.com/DIGI-UW/openelis-docker/actions/workflows/build-installer.yml)
-workflow. It runs when a release is published here, on demand for a version
-(Run workflow), and once a day for the latest OpenELIS-Global-2 release that
-still has no package. The package holds the compose file pinned to that
-version, the configuration files, the install scripts and
-`dockerImage/openelis-images.tar.gz` with every image the compose file runs;
-`dockerImage/images.txt` lists them.
+workflow. The package holds the compose file pinned to an OpenELIS-Global-2
+version and an analyser Bridge version, the configuration files, the install
+scripts and `dockerImage/openelis-images.tar.gz` with every image the compose
+file runs; `dockerImage/images.txt` lists them, and the release notes name
+both versions.
 
 1. Download `OpenELIS-Global_<version>_docker_installer.tar.gz` from the
    [releases](https://github.com/DIGI-UW/openelis-docker/releases)
@@ -109,21 +108,106 @@ version, the configuration files, the install scripts and
 
        ./run.sh
 
-1. For upgrading an existing installation, only load the images from the new
-   package, then set the image tags in your existing `docker-compose.yml` to
-   the new version (listed in `dockerImage/images.txt`) and run
-   `docker compose up -d` there
+1. For upgrading an existing installation, give the upgrade script the
+   directory of that installation. It loads the images, replaces the
+   installation's `docker-compose.yml` with the package's (the old one is
+   kept next to it as `docker-compose.yml.<date>.bak`), adds the
+   configuration folders this version needs without touching the ones you
+   have, adds the analyser Bridge pairing code to your `.env`, and restarts
+   the stack there without contacting any registry
 
-       ./upgrade.sh
+       ./upgrade.sh /path/to/your/installation
 
-   Keep your existing `.env`: the package's `.env` carries the default
-   passwords, and `OE_ENCRYPTION_PASSWORD` must stay what it was (your
-   keystore password, when it was never set) or the connection passwords
-   saved in OpenELIS stop decrypting. If you take the package's
-   `docker-compose.yml` into an old installation, copy `configs/certs/` with
-   it: the `certs` service runs the script in there.
+   If you had changed your `docker-compose.yml` (ports, extra volumes), carry
+   those changes over from the backup. Your `.env` is kept: the package's
+   `.env` carries the default passwords, and `OE_ENCRYPTION_PASSWORD` must
+   stay what it was (your keystore password, when it was never set) or the
+   connection passwords saved in OpenELIS stop decrypting.
 
-To build a package yourself, run `./build.sh <version> <image tag>`: it pulls
-every image named in `docker-compose.yml` (with `:develop` replaced by the
-image tag), saves them into one archive and writes the installer to
-`OEDockerInstaller/`.
+   `./upgrade.sh` with no directory only loads the images; you then update the
+   tags in your `docker-compose.yml` to the versions in
+   `dockerImage/images.txt`, add the `openelis-analyzer-bridge` service and
+   the `bridge-state` volume from the package's `docker-compose.yml`, copy
+   `configs/certs/` and `configs/analyzer-imports/`, and run
+   `docker compose up -d` there.
+
+## ANALYSERS
+
+Analysers connect to the analyser Bridge (`openelis-analyzer-bridge`), which
+the stack starts with OpenELIS; the Analysers pages in OpenELIS set them up
+through it. Since 3.3.0 the Bridge is the only way analysers reach OpenELIS.
+
+- OpenELIS pairs with the Bridge when it starts, using
+  `ANALYZER_BRIDGE_PAIRING_CODE` from `.env`. `run.sh` and `upgrade.sh`
+  generate that code for each installation. To pair again (for example after
+  the Bridge's volume was deleted), choose **Pair again** on the Analysers
+  page and enter the code from `.env`.
+- An online installation started with `docker compose up -d` has no code
+  until you set one: put any value in `ANALYZER_BRIDGE_PAIRING_CODE` in
+  `.env` before the first start, or enter the code the Bridge logs
+  (`docker logs openelis-analyzer-bridge`) on the Analysers page.
+- Analysers on the lab network send to the host on port 12001 (ASTM LIS01-A
+  over TCP), 12011 (ASTM E1381) or 2575 (HL7 v2 over MLLP). File-based
+  analysers drop their result files into a folder under
+  `configs/analyzer-imports/`, named on the analyser's page. The Bridge runs
+  as its own user (`astm`), so the stack gives it `configs/analyzer-imports/`
+  each time it starts, and the Bridge creates each analyser's folder there.
+- The Bridge keeps its certificate, the pairing, the analyser connections and
+  the results OpenELIS has not accepted yet in the `bridge-state` volume.
+  Keep that volume across upgrades.
+
+Upgrading from 3.2.x: the analyser settings of the old analyser module
+(connection, file import and test mappings) are not carried over. The upgrade
+writes all of them into the database before removing them, and each analyser
+has to be set up again on the Analysers pages. Save that export to a file once
+the upgraded stack is up:
+
+    docker exec openelisglobal-database psql -U clinlims -d clinlims -At \
+      -c "select summary from clinlims.configuration_import_run where source = 'ANALYZER_LEGACY'" \
+      > legacy-analyzers.json
+
+It holds, under `analyzers`, each analyser's old settings by column name, and
+under each removed table's name (for example `analyzer_test_map`) its rows.
+Note your analysers' addresses and test codes before you upgrade as well.
+
+## RELEASING
+
+OpenELIS-Global-2 and the analyser Bridge
+([openelis-analyzer-bridge](https://github.com/DIGI-UW/openelis-analyzer-bridge))
+are released separately and have their own version numbers, so every release
+here names both. `docker-compose.yml` on `main` runs the `:develop` images,
+including OpenELIS develop's own Bridge build
+(`itechuw/openelis-global-2-analyzer-bridge:develop`); a release pins the
+OpenELIS images to the OpenELIS version and the Bridge to
+`itechuw/openelis-analyzer-bridge:<bridge version>`.
+
+To release, open the
+[Build OpenELIS-Global-2 Offline Docker Images](https://github.com/DIGI-UW/openelis-docker/actions/workflows/build-installer.yml)
+workflow, choose Run workflow and enter:
+
+- `version`: the OpenELIS-Global-2 release tag, for example `3.3.0`. It is
+  also the version of the release here.
+- `bridge_version`: the analyser Bridge release to ship with it, for example
+  `3.4.1`. Use the Bridge release that OpenELIS version was built and tested
+  with; this prints it:
+
+      ./scripts/bridge-version-for.sh 3.3.0
+
+The workflow checks that every image exists on Docker Hub, pins
+`docker-compose.yml` to both versions (`scripts/pin-versions.sh`), refuses any
+moving tag left (`scripts/check-release-pins.sh`), commits and tags the
+result, creates the release when it does not exist, then builds the package
+with the same two versions and attaches it. It releases from `main` (or the
+branch or commit given as `base_ref`), so running it again for an existing
+version moves that tag onto the current packaging and replaces the package.
+The workflow also
+runs when a release is published here, and once a day for the latest
+OpenELIS-Global-2 release that still has no package; those runs take the
+Bridge release OpenELIS was built with, and warn when a version given by hand
+differs from it.
+
+To build a package yourself, run `./build.sh <openelis version> <bridge version>`,
+for example `./build.sh 3.3.0 3.4.1` (or `./build.sh develop develop` for a
+test package of the develop images). It pins a copy of `docker-compose.yml` to
+both versions, pulls every image that copy names, saves them into one archive
+and writes the installer to `OEDockerInstaller/`.
