@@ -109,19 +109,65 @@ version, the configuration files, the install scripts and
 
        ./run.sh
 
-1. For upgrading an existing installation, only load the images from the new
-   package, then set the image tags in your existing `docker-compose.yml` to
-   the new version (listed in `dockerImage/images.txt`) and run
-   `docker compose up -d` there
+1. For upgrading an existing installation, give the upgrade script the
+   directory of that installation. It loads the images, replaces the
+   installation's `docker-compose.yml` with the package's (the old one is
+   kept next to it as `docker-compose.yml.<date>.bak`), adds the
+   configuration folders this version needs without touching the ones you
+   have, adds the analyser Bridge pairing code to your `.env`, and restarts
+   the stack there without contacting any registry
 
-       ./upgrade.sh
+       ./upgrade.sh /path/to/your/installation
 
-   Keep your existing `.env`: the package's `.env` carries the default
-   passwords, and `OE_ENCRYPTION_PASSWORD` must stay what it was (your
-   keystore password, when it was never set) or the connection passwords
-   saved in OpenELIS stop decrypting. If you take the package's
-   `docker-compose.yml` into an old installation, copy `configs/certs/` with
-   it: the `certs` service runs the script in there.
+   If you had changed your `docker-compose.yml` (ports, extra volumes), carry
+   those changes over from the backup. Your `.env` is kept: the package's
+   `.env` carries the default passwords, and `OE_ENCRYPTION_PASSWORD` must
+   stay what it was (your keystore password, when it was never set) or the
+   connection passwords saved in OpenELIS stop decrypting.
+
+   `./upgrade.sh` with no directory only loads the images; you then update the
+   tags in your `docker-compose.yml` to the versions in
+   `dockerImage/images.txt`, add the `openelis-analyzer-bridge` service and
+   the `bridge-state` volume from the package's `docker-compose.yml`, copy
+   `configs/certs/` and `configs/analyzer-imports/`, and run
+   `docker compose up -d` there.
+
+## ANALYSERS
+
+Analysers connect to the analyser Bridge (`openelis-analyzer-bridge`), which
+the stack starts with OpenELIS; the Analysers pages in OpenELIS set them up
+through it. Since 3.3.0 the Bridge is the only way analysers reach OpenELIS.
+
+- OpenELIS pairs with the Bridge when it starts, using
+  `ANALYZER_BRIDGE_PAIRING_CODE` from `.env`. `run.sh` and `upgrade.sh`
+  generate that code for each installation. To pair again (for example after
+  the Bridge's volume was deleted), put a new code in `.env` and run
+  `docker compose up -d`.
+- An online installation started with `docker compose up -d` has no code
+  until you set one: put any value in `ANALYZER_BRIDGE_PAIRING_CODE` in
+  `.env` before the first start, or enter the code the Bridge logs
+  (`docker logs openelis-analyzer-bridge`) on the Analysers page.
+- Analysers on the lab network send to the host on port 12001 (ASTM LIS01-A
+  over TCP), 12011 (ASTM E1381) or 2575 (HL7 v2 over MLLP). File-based
+  analysers drop their result files into a folder under
+  `configs/analyzer-imports/`, named on the analyser's page.
+- The Bridge keeps its certificate, the pairing, the analyser connections and
+  the results OpenELIS has not accepted yet in the `bridge-state` volume.
+  Keep that volume across upgrades.
+
+Upgrading from 3.2.x: the analyser settings of the old analyser module
+(connection, file import and test mappings) are not carried over. The upgrade
+writes all of them into the database before removing them, and each analyser
+has to be set up again on the Analysers pages. Save that export to a file once
+the upgraded stack is up:
+
+    docker exec openelisglobal-database psql -U clinlims -d clinlims -At \
+      -c "select summary from clinlims.configuration_import_run where source = 'ANALYZER_LEGACY'" \
+      > legacy-analyzers.json
+
+It holds, under `analyzers`, each analyser's old settings by column name, and
+under each removed table's name (for example `analyzer_test_map`) its rows.
+Note your analysers' addresses and test codes before you upgrade as well.
 
 To build a package yourself, run `./build.sh <version> <image tag>`: it pulls
 every image named in `docker-compose.yml` (with `:develop` replaced by the
