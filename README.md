@@ -140,8 +140,8 @@ through it. Since 3.3.0 the Bridge is the only way analysers reach OpenELIS.
 - OpenELIS pairs with the Bridge when it starts, using
   `ANALYZER_BRIDGE_PAIRING_CODE` from `.env`. `run.sh` and `upgrade.sh`
   generate that code for each installation. To pair again (for example after
-  the Bridge's volume was deleted), put a new code in `.env` and run
-  `docker compose up -d`.
+  the Bridge's volume was deleted), choose **Pair again** on the Analysers
+  page and enter the code from `.env`.
 - An online installation started with `docker compose up -d` has no code
   until you set one: put any value in `ANALYZER_BRIDGE_PAIRING_CODE` in
   `.env` before the first start, or enter the code the Bridge logs
@@ -149,7 +149,9 @@ through it. Since 3.3.0 the Bridge is the only way analysers reach OpenELIS.
 - Analysers on the lab network send to the host on port 12001 (ASTM LIS01-A
   over TCP), 12011 (ASTM E1381) or 2575 (HL7 v2 over MLLP). File-based
   analysers drop their result files into a folder under
-  `configs/analyzer-imports/`, named on the analyser's page.
+  `configs/analyzer-imports/`, named on the analyser's page. The Bridge runs
+  as its own user (`astm`), so the stack gives it `configs/analyzer-imports/`
+  each time it starts, and the Bridge creates each analyser's folder there.
 - The Bridge keeps its certificate, the pairing, the analyser connections and
   the results OpenELIS has not accepted yet in the `bridge-state` volume.
   Keep that volume across upgrades.

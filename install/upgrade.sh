@@ -13,6 +13,9 @@
 #       docker-compose.yml yourself (this version adds the
 #       openelis-analyzer-bridge service) and run `docker compose up -d` there.
 set -euo pipefail
+if [ $# -gt 0 ]; then
+    target=$(cd "$1" && pwd)
+fi
 cd "$(dirname "$0")"
 
 ensure_pairing_code() {
@@ -31,7 +34,6 @@ ensure_pairing_code() {
 }
 
 if [ $# -gt 0 ]; then
-    target=$(cd "$1" && pwd)
     for required in docker-compose.yml .env configs; do
         if [ ! -e "${target}/${required}" ]; then
             echo "${target} is not an OpenELIS installation: ${required} is missing" >&2
