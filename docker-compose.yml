@@ -134,6 +134,7 @@ services:
         image: itechuw/openelis-global-2-analyzer-bridge:develop
         platform: linux/amd64
         user: "0:0"
+        network_mode: none
         entrypoint: ["sh", "-c", "chown \"$$(id -u astm):$$(id -g astm)\" /data/analyzer-imports"]
         volumes:
             - ./configs/analyzer-imports:/data/analyzer-imports

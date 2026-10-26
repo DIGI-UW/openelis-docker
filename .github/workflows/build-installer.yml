@@ -149,18 +149,26 @@ jobs:
             git push origin "$TAG"
           fi
 
-      - name: Create the release when it does not exist
+      - name: Create the release, or name the Bridge in its notes
         if: steps.resolve.outputs.build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.resolve.outputs.tag }}
           BRIDGE: ${{ steps.resolve.outputs.bridge }}
         run: |
+          BRIDGE_LINE="Analyser Bridge: ${BRIDGE} (https://github.com/DIGI-UW/openelis-analyzer-bridge/releases/tag/${BRIDGE})"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "release $TAG exists"
+            # Keep the existing notes; set the line naming the Bridge version.
+            gh release view "$TAG" --json body --jq .body | tr -d '\r' | grep -v '^Analyser Bridge: ' \
+              | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' > notes.md || true
+            printf '\n%s\n' "$BRIDGE_LINE" >> notes.md
+            gh release edit "$TAG" --notes-file notes.md
+            echo "release $TAG exists; its notes now name analyser Bridge $BRIDGE"
           else
             gh release create "$TAG" --title "OpenELIS-Global2 Docker ${TAG} Release" \
-              --notes "Offline installer for OpenELIS-Global-2 ${TAG} (https://github.com/DIGI-UW/OpenELIS-Global-2/releases/tag/${TAG}) with analyser Bridge ${BRIDGE} (https://github.com/DIGI-UW/openelis-analyzer-bridge/releases/tag/${BRIDGE})."
+              --notes "Offline installer for OpenELIS-Global-2 ${TAG} (https://github.com/DIGI-UW/OpenELIS-Global-2/releases/tag/${TAG}).
+
+          ${BRIDGE_LINE}"
           fi
 
   build:
