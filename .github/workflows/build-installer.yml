@@ -11,7 +11,9 @@ name: Build OpenELIS-Global-2 Offline Docker Images
 # release or the daily run takes the Bridge release the OpenELIS release was
 # built with (scripts/bridge-version-for.sh). The compose file is pinned to
 # both with scripts/pin-versions.sh, committed and tagged, and build.sh gets
-# the same two versions.
+# the same two versions. A published release is built from its own tag; any
+# other run releases from the branch it runs on (or base_ref), so running it
+# again for an existing version moves that tag onto the current packaging.
 on:
   release:
     types: [published]
@@ -23,6 +25,10 @@ on:
       bridge_version:
         description: Analyser Bridge release tag to ship with it (for example 3.4.1). scripts/bridge-version-for.sh <version> prints the one OpenELIS was built with.
         required: true
+      base_ref:
+        description: Branch or commit to release from (default, the branch this runs on)
+        required: false
+        default: ""
   schedule:
     - cron: "17 4 * * *"
 
@@ -111,13 +117,17 @@ jobs:
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
           BRIDGE: ${{ steps.resolve.outputs.bridge }}
+          BASE_REF: ${{ github.event.inputs.base_ref }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # An existing tag may predate these scripts; run the current ones.
+          # base_ref may predate these scripts; run the current ones.
           cp -r scripts "$RUNNER_TEMP/scripts"
+          if [ -n "$BASE_REF" ]; then
+            git checkout -q "$BASE_REF"
+          fi
+          echo "releasing from $(git rev-parse --short HEAD)"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            git checkout -q "$TAG"
             existing=true
           else
             existing=false

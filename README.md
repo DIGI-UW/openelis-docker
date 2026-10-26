@@ -197,8 +197,10 @@ The workflow checks that every image exists on Docker Hub, pins
 `docker-compose.yml` to both versions (`scripts/pin-versions.sh`), refuses any
 moving tag left (`scripts/check-release-pins.sh`), commits and tags the
 result, creates the release when it does not exist, then builds the package
-with the same two versions and attaches it. Running it again for an existing
-version re-pins and moves that tag and replaces the package. The workflow also
+with the same two versions and attaches it. It releases from `main` (or the
+branch or commit given as `base_ref`), so running it again for an existing
+version moves that tag onto the current packaging and replaces the package.
+The workflow also
 runs when a release is published here, and once a day for the latest
 OpenELIS-Global-2 release that still has no package; those runs take the
 Bridge release OpenELIS was built with, and warn when a version given by hand
