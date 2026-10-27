@@ -30,7 +30,7 @@ else
     bridgeImage="itechuw/openelis-analyzer-bridge:${bridgeVersion}"
 fi
 
-for repo in openelis-global-2 openelis-global-2-frontend openelis-global-2-database openelis-global-2-fhir openelis-global-2-proxy; do
+for repo in openelis-global-2 openelis-global-2-frontend openelis-global-2-database openelis-global-2-fhir openelis-global-2-proxy openelis-global-2-certs; do
     sed -E -i.bak "s#(image:[[:space:]]+)itechuw/${repo}:[^[:space:]]+#\1itechuw/${repo}:${oeVersion}#" "${compose}"
 done
 sed -E -i.bak "s#(image:[[:space:]]+)itechuw/openelis(-global-2)?-analyzer-bridge:[^[:space:]]+#\1${bridgeImage}#" "${compose}"
