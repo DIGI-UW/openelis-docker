@@ -69,6 +69,27 @@ done
 # The certs service runs this script; it changes with the package.
 cp configs/certs/ensure-stores.sh "${target}/configs/certs/ensure-stores.sh"
 
+# nginx.conf as shipped by 3.2.1.x (d12bdd...) and by 3.2.3.0 and 3.3.0 (a2e291...).
+# Those forward the host without its port, so they are replaced; a file
+# edited by hand is left for the administrator.
+update_nginx_conf() {
+    local conf="${target}/configs/nginx/nginx.conf" sum
+    cmp -s configs/nginx/nginx.conf "${conf}" && return
+    sum=$( (sha256sum "${conf}" 2>/dev/null || shasum -a 256 "${conf}") | cut -d' ' -f1)
+    case "${sum}" in
+        d12bdd3408d2a4ba2a108e3bbda3ab5c7a3c3e3238e79016cd0d9f98ac52cab8|a2e29131408829d4b2f8f02daf55c35bf5513a01990b3f88c09e97d4738b1f64)
+            cp "${conf}" "${conf}.$(date +%Y%m%d%H%M%S).bak"
+            cp configs/nginx/nginx.conf "${conf}"
+            echo "updated configs/nginx/nginx.conf; the previous one is kept next to it as a .bak"
+            ;;
+        *)
+            echo "configs/nginx/nginx.conf was changed by hand and is kept; compare it with this package's"
+            echo "configs/nginx/nginx.conf (it forwards the port users open, needed for ports other than 443)"
+            ;;
+    esac
+}
+update_nginx_conf
+
 ensure_pairing_code "${target}/.env"
 
 cd "${target}"

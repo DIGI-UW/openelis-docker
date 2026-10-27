@@ -80,6 +80,42 @@ the whole tree and name the files by their path inside it:
     OE_NGINX_CERT=live/example.org/fullchain.pem
     OE_NGINX_KEY=live/example.org/privkey.pem
 
+### Ports and Reverse Proxies (Optional)
+
+The host ports are set in the [.env](./.env) file:
+
+| Variable | Service | Default |
+|----------|---------|---------|
+| `OE_HTTP_PORT` | proxy, HTTP (redirects to HTTPS) | `80` |
+| `OE_HTTPS_PORT` | proxy, HTTPS: the address users open | `443` |
+| `OE_WEBAPP_HTTP_PORT`, `OE_WEBAPP_HTTPS_PORT` | webapp, published directly | `8080`, `8443` |
+| `OE_FHIR_HTTP_PORT`, `OE_FHIR_HTTPS_PORT` | FHIR server, published directly | `8081`, `8444` |
+
+To serve OpenELIS on 8080 and 8443, move the webapp's own ports out of the
+way first, then run `docker compose up -d`:
+
+    OE_HTTP_PORT=8080
+    OE_HTTPS_PORT=8443
+    OE_WEBAPP_HTTP_PORT=18080
+    OE_WEBAPP_HTTPS_PORT=18443
+
+Users then open `https://<server>:8443/`, and `http://<server>:8080/`
+redirects there.
+
+Behind another reverse proxy (a gateway, a load balancer), have that proxy
+pass the address users opened, either with the standard `Forwarded` header or
+with `X-Forwarded-Proto`, `X-Forwarded-Host` and `X-Forwarded-Port`. For
+nginx:
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Port $server_port;
+
+OpenELIS uses them for the links it builds (the login redirect, single
+sign-on callbacks, FHIR links), so they keep a port such as 8443. It reads
+them only from connections on a private network or loopback address, where
+its own proxy sits. This needs OpenELIS-Global-2 3.4.0 or later.
+
 ## OFFLINE INSTALLATION
 
 Every OpenELIS-Global-2 release has a matching openelis-docker release with an
@@ -113,13 +149,16 @@ both versions.
    installation's `docker-compose.yml` with the package's (the old one is
    kept next to it as `docker-compose.yml.<date>.bak`), adds the
    configuration folders this version needs without touching the ones you
-   have, adds the analyser Bridge pairing code to your `.env`, and restarts
-   the stack there without contacting any registry
+   have, updates `configs/nginx/nginx.conf` when it is one this project
+   shipped (the old one is kept as `nginx.conf.<date>.bak`; a file you edited
+   is left as it is), adds the analyser Bridge pairing code to your `.env`,
+   and restarts the stack there without contacting any registry
 
        ./upgrade.sh /path/to/your/installation
 
-   If you had changed your `docker-compose.yml` (ports, extra volumes), carry
-   those changes over from the backup. Your `.env` is kept: the package's
+   If you had changed your `docker-compose.yml` (extra volumes, other ports),
+   carry those changes over from the backup; ports now go in `.env` (see
+   Ports and Reverse Proxies). Your `.env` is kept: the package's
    `.env` carries the default passwords, and `OE_ENCRYPTION_PASSWORD` must
    stay what it was (your keystore password, when it was never set) or the
    connection passwords saved in OpenELIS stop decrypting.
