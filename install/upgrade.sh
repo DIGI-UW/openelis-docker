@@ -74,6 +74,10 @@ cp configs/certs/ensure-stores.sh "${target}/configs/certs/ensure-stores.sh"
 # edited by hand is left for the administrator.
 update_nginx_conf() {
     local conf="${target}/configs/nginx/nginx.conf" sum
+    if [ ! -f "${conf}" ]; then
+        echo "configs/nginx/nginx.conf is missing from ${target}; copy it from this package"
+        return
+    fi
     cmp -s configs/nginx/nginx.conf "${conf}" && return
     sum=$( (sha256sum "${conf}" 2>/dev/null || shasum -a 256 "${conf}") | cut -d' ' -f1)
     case "${sum}" in

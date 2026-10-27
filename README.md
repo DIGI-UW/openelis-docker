@@ -111,6 +111,11 @@ nginx:
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Port $server_port;
 
+A gateway that rewrites `Host` to the OpenELIS server's name (Apache's
+`ProxyPass` without `ProxyPreserveHost On`) works too, because it sends the
+original host in `X-Forwarded-Host`. Connect the gateway to the HTTPS port:
+the HTTP port only redirects to `OE_HTTPS_PORT`.
+
 OpenELIS uses them for the links it builds (the login redirect, single
 sign-on callbacks, FHIR links), so they keep a port such as 8443. It reads
 them only from connections on a private network or loopback address, where
