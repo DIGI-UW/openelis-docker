@@ -83,8 +83,8 @@ services:
             certs:
                 condition: service_completed_successfully
         ports:
-            - "8080:8080"
-            - "8443:8443"
+            - "${OE_WEBAPP_HTTP_PORT:-8080}:8080"
+            - "${OE_WEBAPP_HTTPS_PORT:-8443}:8443"
         restart: always
         networks:
           openelis-network:
@@ -192,8 +192,8 @@ services:
         image: itechuw/openelis-global-2-fhir:develop
         platform: linux/amd64
         ports:
-            - "8081:8080"
-            - "8444:8443"
+            - "${OE_FHIR_HTTP_PORT:-8081}:8080"
+            - "${OE_FHIR_HTTPS_PORT:-8444}:8443"
         depends_on:
             db.openelis.org:
                 condition: service_started
@@ -247,15 +247,16 @@ services:
         container_name: openelisglobal-proxy
         platform: linux/amd64
         ports:
-            - 80:80
-            - 443:443
+            - "${OE_HTTP_PORT:-80}:80"
+            - "${OE_HTTPS_PORT:-443}:443"
         environment:
             - OE_NGINX_CERT=${OE_NGINX_CERT:-apache-selfsigned.crt}
             - OE_NGINX_KEY=${OE_NGINX_KEY:-apache-selfsigned.key}
+            - OE_HTTPS_PORT=${OE_HTTPS_PORT:-443}
         command:
             - /bin/sh
             - -c
-            - "envsubst '$$OE_NGINX_CERT $$OE_NGINX_KEY' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && exec nginx -g 'daemon off;'"
+            - "envsubst '$$OE_NGINX_CERT $$OE_NGINX_KEY $$OE_HTTPS_PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && exec nginx -g 'daemon off;'"
         volumes:
             - ${OE_CERTS_PATH:-certs-vol}:/etc/nginx/certs/
             - ${OE_KEYS_PATH:-keys-vol}:/etc/nginx/keys/
