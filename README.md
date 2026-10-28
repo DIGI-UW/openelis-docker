@@ -198,7 +198,8 @@ its own proxy sits. This needs OpenELIS-Global-2 3.4.0 or later.
 ## Historical offline installations
 
 Previously published offline packages remain available with their original tagged
-instructions. Use the README shipped with that package. Do not apply its upgrade
+instructions. This release workflow does not rebuild them. Use the README shipped
+with that package. Do not apply its upgrade
 script to this new distribution or copy newly generated keys over an existing site.
 Offline delivery for the manifest-based distribution is deferred; this release path
 currently supports online installation only.
