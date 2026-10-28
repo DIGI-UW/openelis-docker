@@ -65,8 +65,9 @@ services:
         env_file:
             - ./configs/database/database.env
         environment:
-            - DB_PASSWORD=${OE_DB_PASSWORD}
-            - DB_SUPERUSER_PASSWORD=${ADMIN_PASSWORD}   
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+            - DB_PASSWORD=${OE_DB_PASSWORD:?Set OE_DB_PASSWORD in .env}
+            - DB_SUPERUSER_PASSWORD=${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
         volumes:
               # preserves the database between containers
             - ./configs/database/data:/var/lib/postgresql/data                
@@ -98,10 +99,10 @@ services:
               ipv4_address: 172.20.1.121
         logging: *local-logging      
         environment:
-            - DEFAULT_PW=adminADMIN! 
+            - OE_DB_PASSWORD=${OE_DB_PASSWORD:?Set OE_DB_PASSWORD in .env}
             - TZ=America/New_York
               # Config variables loaded through Tomacat server.xml
-            - CATALINA_OPTS= -Ddatasource.url=jdbc:postgresql://db.openelis.org:5432/clinlims -Ddatasource.username=clinlims -Ddatasource.password=${OE_DB_PASSWORD} -Doe.ssl.truststorepath=${SSL_TRUSTSTORE_PATH} -Doe.ssl.truststorepassword=${SSL_TRUSTSTORE_PASSWORD} -Doe.ssl.keystorepath=${SSL_KEYSTORE_PATH} -Doe.ssl.keystorepassword=${SSL_KEYSTORE_PASSWORD}
+            - CATALINA_OPTS= -Ddatasource.url=jdbc:postgresql://db.openelis.org:5432/clinlims -Ddatasource.username=clinlims -Doe.ssl.truststorepath=${SSL_TRUSTSTORE_PATH} -Doe.ssl.keystorepath=${SSL_KEYSTORE_PATH}
              # Env variables passed to the common properties file
             - SSL_KEYSTORE_PATH
             - SSL_KEYSTORE_PASSWORD
@@ -131,6 +132,7 @@ services:
             - ./configs/branding:/var/lib/openelis-global/branding
             - ./configs/nce-attachments:/var/lib/openelis-global/nce-attachments  # NCE file attachments
         secrets:
+            - source: initial-admin-password
             - source: common.properties
 
     # Analysers send their results to the Bridge, which hands them to
@@ -221,17 +223,17 @@ services:
           TZ: America/New_York
 
           JAVA_OPTS: "-Djavax.net.ssl.trustStore=${SSL_TRUSTSTORE_PATH}
-                      -Djavax.net.ssl.trustStorePassword=${SSL_TRUSTSTORE_PASSWORD}
                       -Djavax.net.ssl.trustStoreType=pkcs12
                       -Djavax.net.ssl.keyStore=${SSL_KEYSTORE_PATH}
-                      -Djavax.net.ssl.keyStorePassword=${SSL_KEYSTORE_PASSWORD}
                       -Djavax.net.ssl.keyStoreType=pkcs12"
           # Config variables loaded through Tomacat server.xml            
-          CATALINA_OPTS: "-Dhapi.ssl.truststorepath=${SSL_TRUSTSTORE_PATH} -Dhapi.ssl.truststorepassword=${SSL_TRUSTSTORE_PASSWORD} -Dhapi.ssl.keystorepath=${SSL_KEYSTORE_PATH} -Dhapi.ssl.keystorepassword=${SSL_KEYSTORE_PASSWORD}"  
+          CATALINA_OPTS: "-Dhapi.ssl.truststorepath=${SSL_TRUSTSTORE_PATH} -Dhapi.ssl.keystorepath=${SSL_KEYSTORE_PATH}"
           # Config variables loaded through Hapi application.yml
           FHIR_DATASOURCE_URL : "jdbc:postgresql://db.openelis.org:5432/clinlims?currentSchema=clinlims"
           FHIR_DATASOURCE_USERNAME: "clinlims"
-          FHIR_DATASOURCE_PASSWORD: ${OE_DB_PASSWORD}
+          SSL_KEYSTORE_PASSWORD: ${SSL_KEYSTORE_PASSWORD:-kspass}
+          SSL_TRUSTSTORE_PASSWORD: ${SSL_TRUSTSTORE_PASSWORD:-tspass}
+          FHIR_DATASOURCE_PASSWORD: ${OE_DB_PASSWORD:?Set OE_DB_PASSWORD in .env}
           FHIR_SERVER_ADRESS: "http://fhir.openelis.org:8080/fhir/"
 
         logging: *local-logging                       
@@ -305,6 +307,8 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock            
             
 secrets: 
+  initial-admin-password:
+    file: ${OE_INITIAL_ADMIN_PASSWORD_FILE:-./secrets/initial-admin-password}
   common.properties:
     file:  ./configs/properties/common.properties 
 

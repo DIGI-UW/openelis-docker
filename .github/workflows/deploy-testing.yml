@@ -65,15 +65,24 @@ jobs:
             fi
             cd "$APP_DIR"
 
-            # Pull the latest deployment definition WITHOUT a hard reset. A
-            # fast-forward only updates files that changed upstream, so it leaves
-            # the containers' root-owned log files in configs/logs untouched
-            # (a hard reset would try to overwrite them and fail: Permission
-            # denied -> exit 128). Drop our prior .env edits first so the merge
-            # never conflicts on .env; the cert overrides are re-applied below.
+            # Preserve installation credentials, including the transition from a
+            # tracked .env to an ignored local file. Restore on merge failure too.
+            test -f .env || { echo "Provision this installation's .env and password file before deploying" >&2; exit 1; }
+            umask 077
+            env_backup=$(mktemp)
+            cp .env "$env_backup"
+            restore_env() {
+              cp "$env_backup" "$APP_DIR/.env"
+              rm -f "$env_backup"
+            }
+            trap restore_env EXIT
             git fetch origin main
-            git checkout -- .env 2>/dev/null || true
+            if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+              git checkout -- .env
+            fi
             git merge --ff-only origin/main
+            restore_env
+            trap - EXIT
 
             # --- apply the testing-server env overrides -----------------------
             # set_env KEY VALUE : replace the line if the key exists, else append it

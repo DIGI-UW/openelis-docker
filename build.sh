@@ -54,10 +54,14 @@ cp docker-compose.light.yml "${stageDir}/docker-compose.light.yml"
 if [ "${projectVersion}" != "develop" ]; then
     ./scripts/check-release-pins.sh "${stageDir}/docker-compose.yml"
 fi
-cp .env "${stageDir}/.env"
+cp .env.example "${stageDir}/.env"
 cp -r configs/* "${stageDir}/configs"
 
-images=$(docker compose --project-directory "${CALL_DIR}" -f "${stageDir}/docker-compose.yml" config --images | sort -u)
+# These placeholders are used only to list images; no containers are started
+# and the shipped template keeps its credential fields empty.
+images=$(OE_DB_PASSWORD=unused ADMIN_PASSWORD=unused POSTGRES_PASSWORD=unused \
+    docker compose --env-file "${CALL_DIR}/.env.example" --project-directory "${CALL_DIR}" \
+    -f "${stageDir}/docker-compose.yml" config --images | sort -u)
 echo "images in docker-compose.yml:"
 echo "${images}"
 echo "${images}" > "${stageDir}/dockerImage/images.txt"
