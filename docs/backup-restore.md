@@ -23,10 +23,10 @@ wait for readiness; do not proceed without a successful database dump.
 ```sh
 docker compose exec -T db.openelis.org pg_dump -U clinlims -d clinlims \
   -Fc --no-owner --no-acl > "$backup/database.dump"
-docker compose run --rm --no-deps -T --entrypoint sh certs -ec \
+docker compose run --pull never --rm --no-deps -T --entrypoint sh certs -ec \
   'tar -C / -cf - etc/openelis-global etc/ssl/private/apache-selfsigned.key etc/ssl/certs/apache-selfsigned.crt' \
   > "$backup/security.tar"
-docker compose run --rm --no-deps -T --entrypoint sh openelis-analyzer-bridge -ec \
+docker compose run --pull never --rm --no-deps -T --entrypoint sh openelis-analyzer-bridge -ec \
   'tar -C /data -cf - openelis-analyzer-bridge' > "$backup/bridge.tar"
 sudo tar --exclude='./configs/database/data' --exclude='./configs/logs' \
   -cpf - ./.env ./secrets ./configs ./docker-compose.yml ./deployment-manifest.json \
@@ -39,7 +39,7 @@ this directory or use external mount paths, back up those paths separately using
 their certificate manager's procedure. Retain the initial administrator password
 file even when it is empty; Compose still mounts it.
 
-After checking the archives, restart with `docker compose up -d --no-build` and
+After checking the archives, restart with `docker compose up -d --pull never --no-build` and
 verify application readiness and login. Rehearse a restore before relying on the
 backup. Database and security archives must be retained together.
 
@@ -52,12 +52,17 @@ external mount paths deliberately if the replacement server uses different paths
 
 ```sh
 sudo tar -xpf /path/to/backup/configuration.tar -C .
-docker compose pull
-docker compose run --rm --no-deps -T --user 0:0 --entrypoint sh certs \
+```
+
+Online, run `docker compose pull`. Offline, load `images.tar` from the same release
+with `docker image load -i /path/to/images.tar`. Then restore state before startup:
+
+```sh
+docker compose run --pull never --rm --no-deps -T --user 0:0 --entrypoint sh certs \
   -ec 'tar -C / -xpf -' < /path/to/backup/security.tar
-docker compose run --rm --no-deps -T --user 0:0 --entrypoint sh openelis-analyzer-bridge \
+docker compose run --pull never --rm --no-deps -T --user 0:0 --entrypoint sh openelis-analyzer-bridge \
   -ec 'tar -C /data -xpf -' < /path/to/backup/bridge.tar
-docker compose up -d --no-build db.openelis.org
+docker compose up -d --pull never --no-build db.openelis.org
 docker compose exec -T db.openelis.org pg_isready -h 127.0.0.1 -U clinlims
 ```
 
@@ -74,7 +79,7 @@ docker compose exec -T db.openelis.org dropdb -U postgres --if-exists clinlims
 docker compose exec -T db.openelis.org createdb -U postgres -O clinlims -T template0 clinlims
 docker compose exec -T db.openelis.org pg_restore -U postgres -d clinlims \
   --exit-on-error --no-acl < /path/to/backup/database.dump
-docker compose up -d --no-build
+docker compose up -d --pull never --no-build
 docker compose ps
 ```
 

@@ -60,6 +60,23 @@ jobs:
             git tag "$VERSION"
             git push origin "refs/tags/$VERSION"
           fi
+      - uses: docker/setup-docker-action@v5.6.0
+        with:
+          version: v29.8.2
+          daemon-config: '{"features":{"containerd-snapshotter":true}}'
+      - name: Package or verify the matching offline download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" --json assets --jq '.assets[].name' | grep -qx SHA256SUMS; then
+            # A complete existing package is retained, not rebuilt or overwritten.
+            gh release download "$VERSION" --pattern SHA256SUMS --pattern "openelis-$VERSION-linux-amd64.tar.gz.part-*" --dir "$RUNNER_TEMP/existing-offline"
+            (cd "$RUNNER_TEMP/existing-offline" && sha256sum -c SHA256SUMS)
+          else
+            bash scripts/package-offline.sh "$RUNNER_TEMP/offline"
+          fi
       - name: Publish the distribution release without replacing existing assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -69,4 +86,9 @@ jobs:
           if ! gh release view "$VERSION" >/dev/null 2>&1; then
             printf 'Published-image distribution for OpenELIS %s.\n\nThe tagged Compose file uses the exact image digests in deployment-manifest.json from the tested OE2 release. Follow the README at this tag.\n' "$VERSION" > "$RUNNER_TEMP/notes.md"
             gh release create "$VERSION" --verify-tag --title "OpenELIS distribution $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          if [ -d "$RUNNER_TEMP/offline" ]; then
+            gh release upload "$VERSION" "$RUNNER_TEMP/offline/"*.part-*
+            # Upload last: its presence marks a complete offline download.
+            gh release upload "$VERSION" "$RUNNER_TEMP/offline/SHA256SUMS"
           fi

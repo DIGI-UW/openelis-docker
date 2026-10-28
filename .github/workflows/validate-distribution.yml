@@ -33,3 +33,14 @@ jobs:
             echo 'Unreleased template unexpectedly selected images'; exit 1
           fi
           grep -q 'Use a distro release' output.log
+      - uses: docker/setup-docker-action@v5.6.0
+        with:
+          version: v29.8.2
+          daemon-config: '{"features":{"containerd-snapshotter":true}}'
+      - name: Verify offline digest transfer without registry access
+        run: |
+          set -euo pipefail
+          docker pull --platform linux/amd64 alpine:3.21
+          docker image inspect alpine:3.21 --format '{{index .RepoDigests 0}}' > "$RUNNER_TEMP/images.txt"
+          docker image save alpine:3.21 -o "$RUNNER_TEMP/images.tar"
+          bash tests/offline-roundtrip.sh "$RUNNER_TEMP/images.tar" "$RUNNER_TEMP/images.txt"

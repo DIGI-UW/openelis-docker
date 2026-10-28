@@ -12,9 +12,28 @@ You can find more information on how to set up OpenELIS at our [docs page](http:
 
 [![Validate distribution](https://github.com/DIGI-UW/openelis-docker/actions/workflows/validate-distribution.yml/badge.svg)](https://github.com/DIGI-UW/openelis-docker/actions/workflows/validate-distribution.yml)
 
-## ONLINE INSTALLATION
+## Install a release
 
-### Running OpenELIS Global with Docker Compose
+Online and offline installations use the same Compose file, image digests,
+credentials and key initialization. The only difference is how images reach Docker. Choose one download method below,
+then configure credentials and use the matching startup command.
+
+Use an x86-64 Linux host with Docker Engine 29 or later, Docker Compose, and the
+[containerd image store](https://docs.docker.com/engine/storage/containerd/).
+Fresh Docker 29 installations use that store by default. Verify before installing:
+
+```sh
+docker info --format '{{json .DriverStatus}}'
+```
+
+The output must contain `io.containerd.snapshotter.v1`. Offline archives need it to
+retain the digest-pinned image identities. Upgraded Docker installations can still
+use the classic store; changing stores hides existing images and containers, so
+follow Docker's migration guidance separately from an OpenELIS upgrade. Docker,
+Compose and host prerequisites must be installed before disconnecting the host;
+the offline application package does not bundle operating-system packages.
+
+### Obtain the release online
 
 Select a [distribution release](https://github.com/DIGI-UW/openelis-docker/releases)
 that includes `deployment-manifest.json`. Its Compose file already pins the exact
@@ -30,9 +49,35 @@ The unreleased template refuses to start until an image set is selected. Only
 for deliberate testing, set `OE_IMAGE_TAG=develop`; this does not select a stable
 production release. Releases predating the manifest use their own tagged README.
 
+For an offline host, use [the offline download](#obtain-the-release-offline)
+instead of cloning or pulling images. Then use the same credential setup below.
+
+### Obtain the release offline
+
+On a connected computer, download `SHA256SUMS` and **all**
+`openelis-<release>-linux-amd64.tar.gz.part-*` files from the same distribution
+release. Transfer them together to the offline host. The parts keep each download
+below GitHub's size limit; they are one application package, not separate installers.
+
+Use a new, empty download directory. Substitute the chosen release number and run:
+
+```sh
+sha256sum -c SHA256SUMS
+# Continue only when every part reports OK.
+cat openelis-<release>-linux-amd64.tar.gz.part-* | tar -xz
+cd openelis-<release>
+docker image load -i images.tar
+```
+
+The extracted release has the same Compose file and settings as the online download.
+Continue with the shared credential setup below. Keep the package for recovery;
+`images.tar` is only needed when loading images into Docker.
+
+### Configure installation credentials
+
 Copy `.env.example` to `.env` and set different private values for
 `OE_DB_PASSWORD`, `ADMIN_PASSWORD`, and `POSTGRES_PASSWORD`. These are required.
-Create the initial application password file, then use Docker Compose directly:
+Create the initial application password file:
 
 ```sh
 umask 077
@@ -40,10 +85,26 @@ cp .env.example .env
 # Set the three database credentials in .env before continuing.
 mkdir -p secrets
 printf 'OEa1!%s\n' "$(openssl rand -hex 24)" > secrets/initial-admin-password
+```
+
+### Start an online installation
+
+```sh
 docker compose pull
 docker compose up -d --no-build
 docker compose ps
 ```
+
+### Start an offline installation
+
+```sh
+docker compose up -d --pull never --no-build
+docker compose ps
+```
+
+Missing images fail visibly instead of falling back to a registry or another version.
+
+### Verify either installation
 
 No setup script, host Java installation, manual certificate commands, or source
 build is required. Docker manages the containers, persistent volumes and startup
@@ -195,14 +256,19 @@ sign-on callbacks, FHIR links), so they keep a port such as 8443. It reads
 them only from connections on a private network or loopback address, where
 its own proxy sits. This needs OpenELIS-Global-2 3.4.0 or later.
 
-## Historical offline installations
+### Upgrades and recovery for either path
 
-Previously published offline packages remain available with their original tagged
-instructions. This release workflow does not rebuild them. Use the README shipped
-with that package. Do not apply its upgrade
-script to this new distribution or copy newly generated keys over an existing site.
-Offline delivery for the manifest-based distribution is deferred; this release path
-currently supports online installation only.
+Back up the database, configuration, keys and Bridge state using
+[the shared backup/restore procedure](docs/backup-restore.md). Retain installation
+credentials and data when changing releases. Online hosts pull the selected new
+release; offline hosts load its image archive. Both then use that release's Compose
+file and existing settings. Apply the documented existing-installation adoption
+step only when required; offline delivery does not change encryption or migration
+semantics. Do not extract a fresh package over a live installation or delete volumes
+to force initialization.
+
+Previously published offline installers retain their original tagged instructions.
+Their scripts are not used for these manifest-based releases.
 
 ## LIGHT INSTALLATION
 
@@ -288,7 +354,13 @@ on `main` with that release version. The workflow checks the manifest against th
 OE2 tag's commit, writes its image digests into Compose and creates a distribution
 tag of the same version. The mock image remains in the source manifest for evidence
 but is not installed in a lab. A retry verifies an existing tag; it never moves it
-or replaces a release asset. A changed image set requires a new OE2 release.
+or replaces a release asset. The same workflow exports those images, verifies
+loading and executing them by digest in an empty, disconnected Docker daemon, and
+attaches the offline package and checksums. Application workflows still need their
+normal acceptance tests; the transfer check runs only a no-op command in each image.
+A changed image set requires a new OE2 release. A complete existing offline package
+is verified and retained on retry. An interrupted upload without `SHA256SUMS` is
+incomplete and needs explicit recovery; retries never overwrite uploaded parts.
 
 The initial manifest-enabled OE2 images must be published before this workflow can
 produce a usable distribution. Older releases without that manifest cannot use it.
