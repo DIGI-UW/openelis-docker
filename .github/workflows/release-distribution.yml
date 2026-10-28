@@ -51,7 +51,7 @@ jobs:
             cp "$RUNNER_TEMP/oe-release/deployment-manifest.json" deployment-manifest.json
             python3 scripts/apply-release-manifest.py deployment-manifest.json "$VERSION" "$OE_RELEASE_COMMIT"
             # Validation only: these placeholders are not written to the package.
-            OE_DB_PASSWORD=validation ADMIN_PASSWORD=validation POSTGRES_PASSWORD=validation \
+            OE_DB_PASSWORD=validation ADMIN_PASSWORD=validation POSTGRES_PASSWORD=validation ANALYZER_BRIDGE_PAIRING_CODE=validation \
               docker compose --env-file .env.example config --quiet
             git config user.name 'github-actions[bot]'
             git config user.email 'github-actions[bot]@users.noreply.github.com'

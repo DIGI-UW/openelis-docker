@@ -21,12 +21,14 @@ jobs:
           OE_DB_PASSWORD: validation
           ADMIN_PASSWORD: validation
           POSTGRES_PASSWORD: validation
+          ANALYZER_BRIDGE_PAIRING_CODE: validation
         run: docker compose --env-file .env.example config --quiet
       - name: Refuse an unselected template
         env:
           OE_DB_PASSWORD: validation
           ADMIN_PASSWORD: validation
           POSTGRES_PASSWORD: validation
+          ANALYZER_BRIDGE_PAIRING_CODE: validation
         run: |
           unset OE_IMAGE_TAG
           if docker compose --env-file .env.example config --quiet >output.log 2>&1; then

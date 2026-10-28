@@ -60,7 +60,7 @@ services:
         image: itechuw/openelis-global-2-database:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         platform: linux/amd64
         ports:
-            - "15432:5432"
+            - "127.0.0.1:15432:5432"
         restart: always
         env_file:
             - ./configs/database/database.env
@@ -91,8 +91,8 @@ services:
             certs:
                 condition: service_completed_successfully
         ports:
-            - "${OE_WEBAPP_HTTP_PORT:-8080}:8080"
-            - "${OE_WEBAPP_HTTPS_PORT:-8443}:8443"
+            - "127.0.0.1:${OE_WEBAPP_HTTP_PORT:-8080}:8080"
+            - "127.0.0.1:${OE_WEBAPP_HTTPS_PORT:-8443}:8443"
         restart: always
         networks:
           openelis-network:
@@ -100,7 +100,7 @@ services:
         logging: *local-logging      
         environment:
             - OE_DB_PASSWORD=${OE_DB_PASSWORD:?Set OE_DB_PASSWORD in .env}
-            - TZ=America/New_York
+            - TZ=${TZ:-America/New_York}
               # Config variables loaded through Tomacat server.xml
             - CATALINA_OPTS= -Ddatasource.url=jdbc:postgresql://db.openelis.org:5432/clinlims -Ddatasource.username=clinlims -Doe.ssl.truststorepath=${SSL_TRUSTSTORE_PATH} -Doe.ssl.keystorepath=${SSL_KEYSTORE_PATH}
              # Env variables passed to the common properties file
@@ -113,7 +113,7 @@ services:
             - OE_ENCRYPTION_PASSWORD=${OE_ENCRYPTION_PASSWORD:-}
              # The analyser Bridge, and the code OpenELIS pairs with it on start
             - ANALYZER_BRIDGE_URL=https://bridge.openelis.org:8443
-            - ANALYZER_BRIDGE_PAIRING_CODE=${ANALYZER_BRIDGE_PAIRING_CODE:-}
+            - ANALYZER_BRIDGE_PAIRING_CODE=${ANALYZER_BRIDGE_PAIRING_CODE:?Set a private ANALYZER_BRIDGE_PAIRING_CODE in .env}
         volumes:
             - type: volume
               source: key_trust-store-volume
@@ -185,8 +185,8 @@ services:
             # recognises the Bridge and undelivered results are lost.
             - bridge-state:/data/openelis-analyzer-bridge
         environment:
-            - TZ=America/New_York
-            - BRIDGE_PAIRING_CODE=${ANALYZER_BRIDGE_PAIRING_CODE:-}
+            - TZ=${TZ:-America/New_York}
+            - BRIDGE_PAIRING_CODE=${ANALYZER_BRIDGE_PAIRING_CODE:?Set a private ANALYZER_BRIDGE_PAIRING_CODE in .env}
             - BRIDGE_FILE_ENABLED=true
             - BRIDGE_FILE_STATE_STORE_PATH=/data/openelis-analyzer-bridge/state.db
             - BRIDGE_OUTBOX_DB_PATH=/data/openelis-analyzer-bridge/outbox.db
@@ -209,8 +209,8 @@ services:
         image: itechuw/openelis-global-2-fhir:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         platform: linux/amd64
         ports:
-            - "${OE_FHIR_HTTP_PORT:-8081}:8080"
-            - "${OE_FHIR_HTTPS_PORT:-8444}:8443"
+            - "127.0.0.1:${OE_FHIR_HTTP_PORT:-8081}:8080"
+            - "127.0.0.1:${OE_FHIR_HTTPS_PORT:-8444}:8443"
         depends_on:
             db.openelis.org:
                 condition: service_started
@@ -220,7 +220,7 @@ services:
             - openelis-network
         restart: always
         environment:
-          TZ: America/New_York
+          TZ: ${TZ:-America/New_York}
 
           JAVA_OPTS: "-Djavax.net.ssl.trustStore=${SSL_TRUSTSTORE_PATH}
                       -Djavax.net.ssl.trustStoreType=pkcs12
@@ -301,7 +301,7 @@ services:
             - openelis-network
         environment:
             AUTOHEAL_CONTAINER_LABEL: all
-            TZ: America/New_York
+            TZ: ${TZ:-America/New_York}
         logging: *local-logging    
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock            

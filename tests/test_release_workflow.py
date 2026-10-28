@@ -59,7 +59,7 @@ class ReleaseWorkflowTest(unittest.TestCase):
             self.assertEqual(before, git('ls-remote', 'origin', 'refs/tags/3.4.0').split()[0])
 
     def test_default_template_requires_an_explicit_choice(self):
-        env = {**os.environ, 'OE_DB_PASSWORD': 'validation', 'ADMIN_PASSWORD': 'validation', 'POSTGRES_PASSWORD': 'validation'}
+        env = {**os.environ, 'OE_DB_PASSWORD': 'validation', 'ADMIN_PASSWORD': 'validation', 'POSTGRES_PASSWORD': 'validation', 'ANALYZER_BRIDGE_PAIRING_CODE': 'validation'}
         env.pop('OE_IMAGE_TAG', None)
         result = subprocess.run(['docker', 'compose', '--env-file', '.env.example', 'config', '--quiet'],
                                 cwd=ROOT, env=env, capture_output=True, text=True)

@@ -21,7 +21,7 @@ bundle="$staging/openelis-$version"
 # Compose requires credentials to render configuration. These throwaway values
 # only enumerate images; no containers or credential files are created here.
 offline_validation_value=$(python3 -c 'import secrets; print(secrets.token_hex(16))')
-OE_DB_PASSWORD="$offline_validation_value" ADMIN_PASSWORD="$offline_validation_value" POSTGRES_PASSWORD="$offline_validation_value" \
+OE_DB_PASSWORD="$offline_validation_value" ADMIN_PASSWORD="$offline_validation_value" POSTGRES_PASSWORD="$offline_validation_value" ANALYZER_BRIDGE_PAIRING_CODE="$offline_validation_value" \
   docker compose --env-file "$bundle/.env.example" -f "$bundle/docker-compose.yml" config --images \
   | LC_ALL=C sort -u > "$bundle/images.txt"
 images=()
