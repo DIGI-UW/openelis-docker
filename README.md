@@ -1,4 +1,5 @@
 ## OpenELIS Global2 Docker Compose Setup
+
 Docker Compose setup for OpenELIS-Global2
 
 You can find more information on how to set up OpenELIS at our [docs page](http://docs.openelis-global.org/)
@@ -9,14 +10,26 @@ You can find more information on how to set up OpenELIS at our [docs page](http:
 
 [![Publish Docker Images](https://github.com/DIGI-UW/OpenELIS-Global-2/actions/workflows/publish-images.yml/badge.svg)](https://github.com/DIGI-UW/OpenELIS-Global-2/actions/workflows/publish-images.yml)
 
-[![Build Off Line Docker Images](https://github.com/DIGI-UW/openelis-docker/actions/workflows/build-installer.yml/badge.svg)](https://github.com/DIGI-UW/openelis-docker/actions/workflows/build-installer.yml)
+[![Validate distribution](https://github.com/DIGI-UW/openelis-docker/actions/workflows/validate-distribution.yml/badge.svg)](https://github.com/DIGI-UW/openelis-docker/actions/workflows/validate-distribution.yml)
 
 ## ONLINE INSTALLATION
 
 ### Running OpenELIS Global with Docker Compose
 
-Use a released version of this repository, which pins matching application and
-support images. The `main` branch tracks development images and is for testing.
+Select a [distribution release](https://github.com/DIGI-UW/openelis-docker/releases)
+that includes `deployment-manifest.json`. Its Compose file already pins the exact
+images tested and published together by OE2. Clone that tag, not the default branch:
+
+```sh
+# Replace <release> with the selected distribution release tag.
+git clone --branch <release> --depth 1 https://github.com/DIGI-UW/openelis-docker.git openelis
+cd openelis
+```
+
+The unreleased template refuses to start until an image set is selected. Only
+for deliberate testing, set `OE_IMAGE_TAG=develop`; this does not select a stable
+production release. Releases predating the manifest use their own tagged README.
+
 Copy `.env.example` to `.env` and set different private values for
 `OE_DB_PASSWORD`, `ADMIN_PASSWORD`, and `POSTGRES_PASSWORD`. These are required.
 Create the initial application password file, then use Docker Compose directly:
@@ -41,8 +54,8 @@ Long-running services have restart policies for server reboots.
 
 #### The instance can be accessed at
 
-| Instance  |     URL       | credentials (user: password)|
-|---------- |:-------------:|------:                       |
+| Instance          |        URL         |                                   credentials (user: password) |
+| ----------------- | :----------------: | -------------------------------------------------------------: |
 | OpenELIS Frontend | https://localhost/ | `admin`, with the password in your local initial password file |
 
 The application creates the administrator from the mounted password file only
@@ -55,14 +68,14 @@ application image.
 
 Create your private `.env` from [.env.example](./.env.example). Set the database credentials before the first start; the initial application password belongs in its separate secret file.
 
-| Variable | What it sets |
-|----------|--------------|
-| `OE_DB_PASSWORD` | Password of the `clinlims` database user the application connects with |
-| `ADMIN_PASSWORD` | Password of the database administrator role, `admin` |
-| `POSTGRES_PASSWORD` | Password of PostgreSQL's bootstrap account, `postgres` |
-| `OE_INITIAL_ADMIN_PASSWORD_FILE` | Host path to the initial application password file; defaults to `./secrets/initial-admin-password` |
-| `SSL_KEYSTORE_PASSWORD`, `SSL_TRUSTSTORE_PASSWORD` | Passwords of the TLS stores. Set these before first start and retain them. An incorrect existing password stops initialization without rebuilding stores |
-| `OE_ENCRYPTION_PASSWORD` | Leave empty for a fresh installation to use its generated `install/encryption.key`. Existing installations must preserve their effective old key; changing it makes stored connection secrets unreadable |
+| Variable                                           | What it sets                                                                                                                                                                                             |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OE_DB_PASSWORD`                                   | Password of the `clinlims` database user the application connects with                                                                                                                                   |
+| `ADMIN_PASSWORD`                                   | Password of the database administrator role, `admin`                                                                                                                                                     |
+| `POSTGRES_PASSWORD`                                | Password of PostgreSQL's bootstrap account, `postgres`                                                                                                                                                   |
+| `OE_INITIAL_ADMIN_PASSWORD_FILE`                   | Host path to the initial application password file; defaults to `./secrets/initial-admin-password`                                                                                                       |
+| `SSL_KEYSTORE_PASSWORD`, `SSL_TRUSTSTORE_PASSWORD` | Passwords of the TLS stores. Set these before first start and retain them. An incorrect existing password stops initialization without rebuilding stores                                                 |
+| `OE_ENCRYPTION_PASSWORD`                           | Leave empty for a fresh installation to use its generated `install/encryption.key`. Existing installations must preserve their effective old key; changing it makes stored connection secrets unreadable |
 
 ### Installation keys and existing installations
 
@@ -73,6 +86,7 @@ proxy wait for initialization to finish. Restart retains the same keys. Incomple
 security volumes or incorrect passwords stop initialization; restore the complete
 backup rather than deleting individual files to retry.
 
+Follow [backup and restore](docs/backup-restore.md) and rehearse it before use.
 Back up the database, `key_trust-store-volume`, `keys-vol`, `certs-vol`, `.env`, and
 any externally managed certificates together. Keep backups private. The internal
 private stores are readable by the existing Tomcat TLS group (8443). The public
@@ -107,17 +121,17 @@ By default the proxy serves the self-signed certificate generated by the `certs`
 service. For a real deployment you can point the proxy at your own certificate
 and key using four environment variables in the [.env.example](./.env.example) file:
 
-| Variable | What it sets | Default |
-|----------|--------------|---------|
-| `OE_CERTS_PATH` | **Where** the certificate directory comes from: a Docker named volume by default, or a host path in deployment | `certs-vol` |
-| `OE_KEYS_PATH`  | **Where** the private-key directory comes from | `keys-vol` |
-| `OE_NGINX_CERT` | **Which** certificate file nginx loads from `OE_CERTS_PATH` | `apache-selfsigned.crt` |
-| `OE_NGINX_KEY`  | **Which** key file nginx loads from `OE_KEYS_PATH` | `apache-selfsigned.key` |
+| Variable        | What it sets                                                                                                   | Default                 |
+| --------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `OE_CERTS_PATH` | **Where** the certificate directory comes from: a Docker named volume by default, or a host path in deployment | `certs-vol`             |
+| `OE_KEYS_PATH`  | **Where** the private-key directory comes from                                                                 | `keys-vol`              |
+| `OE_NGINX_CERT` | **Which** certificate file nginx loads from `OE_CERTS_PATH`                                                    | `apache-selfsigned.crt` |
+| `OE_NGINX_KEY`  | **Which** key file nginx loads from `OE_KEYS_PATH`                                                             | `apache-selfsigned.key` |
 
 - A bare name (e.g. `certs-vol`) uses the Docker **named volume** filled by the
   `certs` service. A value containing a slash (e.g. `/home/ubuntu/certs2026`) is
   mounted as a **host path** instead: put your real cert/key in that directory.
-- `OE_NGINX_CERT` / `OE_NGINX_KEY` are the file names *inside* those directories
+- `OE_NGINX_CERT` / `OE_NGINX_KEY` are the file names _inside_ those directories
   (a relative path inside them also works); nginx is rendered to load them at
   startup, so they must match the files present.
 
@@ -144,12 +158,12 @@ the whole tree and name the files by their path inside it:
 
 The host ports are set in the [.env.example](./.env.example) file:
 
-| Variable | Service | Default |
-|----------|---------|---------|
-| `OE_HTTP_PORT` | proxy, HTTP (redirects to HTTPS) | `80` |
-| `OE_HTTPS_PORT` | proxy, HTTPS: the address users open | `443` |
-| `OE_WEBAPP_HTTP_PORT`, `OE_WEBAPP_HTTPS_PORT` | webapp, published directly | `8080`, `8443` |
-| `OE_FHIR_HTTP_PORT`, `OE_FHIR_HTTPS_PORT` | FHIR server, published directly | `8081`, `8444` |
+| Variable                                      | Service                              | Default        |
+| --------------------------------------------- | ------------------------------------ | -------------- |
+| `OE_HTTP_PORT`                                | proxy, HTTP (redirects to HTTPS)     | `80`           |
+| `OE_HTTPS_PORT`                               | proxy, HTTPS: the address users open | `443`          |
+| `OE_WEBAPP_HTTP_PORT`, `OE_WEBAPP_HTTPS_PORT` | webapp, published directly           | `8080`, `8443` |
+| `OE_FHIR_HTTP_PORT`, `OE_FHIR_HTTPS_PORT`     | FHIR server, published directly      | `8081`, `8444` |
 
 To serve OpenELIS on 8080 and 8443, move the webapp's own ports out of the
 way first, then run `docker compose up -d`:
@@ -181,59 +195,13 @@ sign-on callbacks, FHIR links), so they keep a port such as 8443. It reads
 them only from connections on a private network or loopback address, where
 its own proxy sits. This needs OpenELIS-Global-2 3.4.0 or later.
 
-## OFFLINE INSTALLATION
+## Historical offline installations
 
-Every OpenELIS-Global-2 release has a matching openelis-docker release with an
-offline package attached, built by the
-[Build OpenELIS-Global-2 Offline Docker Images](https://github.com/DIGI-UW/openelis-docker/actions/workflows/build-installer.yml)
-workflow. The package holds the compose file pinned to an OpenELIS-Global-2
-version and an analyser Bridge version, the configuration files, the install
-scripts and `dockerImage/openelis-images.tar.gz` with every image the compose
-file runs; `dockerImage/images.txt` lists them, and the release notes name
-both versions.
-
-1. Download `OpenELIS-Global_<version>_docker_installer.tar.gz` from the
-   [releases](https://github.com/DIGI-UW/openelis-docker/releases)
-
-1. Unpack it
-
-       tar xzf OpenELIS-Global_<version>_docker_installer.tar.gz
-
-1. Move into the unpacked directory
-
-       cd OpenELIS-Global_<version>_docker_installer
-
-1. For a first installation, load the images and start the containers. The
-   stack starts with `docker compose up -d --pull never`, so no registry is
-   contacted
-
-       ./run.sh
-
-1. For upgrading an existing installation, give the upgrade script the
-   directory of that installation. It loads the images, replaces the
-   installation's `docker-compose.yml` with the package's (the old one is
-   kept next to it as `docker-compose.yml.<date>.bak`), adds the
-   configuration folders this version needs without touching the ones you
-   have, updates `configs/nginx/nginx.conf` when it is one this project
-   shipped (the old one is kept as `nginx.conf.<date>.bak`; a file you edited
-   is left as it is), adds the analyser Bridge pairing code to your `.env`,
-   and restarts the stack there without contacting any registry
-
-       ./upgrade.sh /path/to/your/installation
-
-   If you had changed your `docker-compose.yml` (extra volumes, other ports),
-   carry those changes over from the backup; ports now go in `.env` (see
-   Ports and Reverse Proxies). Your `.env` is kept: the package's
-   `.env` is generated from an empty credential template, and `OE_ENCRYPTION_PASSWORD` must
-   stay what it was (your keystore password, when it was never set) or the
-   connection passwords saved in OpenELIS stop decrypting.
-
-   `./upgrade.sh` with no directory only loads the images; you then update the
-   tags in your `docker-compose.yml` to the versions in
-   `dockerImage/images.txt`, add the `openelis-analyzer-bridge` service and
-   the `bridge-state` volume from the package's `docker-compose.yml`, copy
-   `configs/analyzer-imports/`, and complete the explicit key adoption above before running
-   `docker compose up -d` there.
+Previously published offline packages remain available with their original tagged
+instructions. Use the README shipped with that package. Do not apply its upgrade
+script to this new distribution or copy newly generated keys over an existing site.
+Offline delivery for the manifest-based distribution is deferred; this release path
+currently supports online installation only.
 
 ## LIGHT INSTALLATION
 
@@ -271,12 +239,12 @@ the stack starts with OpenELIS; the Analysers pages in OpenELIS set them up
 through it. Since 3.3.0 the Bridge is the only way analysers reach OpenELIS.
 
 - OpenELIS pairs with the Bridge when it starts, using
-  `ANALYZER_BRIDGE_PAIRING_CODE` from `.env`. `run.sh` and `upgrade.sh`
-  generate that code for each installation. To pair again (for example after
+  `ANALYZER_BRIDGE_PAIRING_CODE` from `.env`. Generate a private value
+  before the first start, for example with `openssl rand -hex 24`. To pair again (for example after
   the Bridge's volume was deleted), choose **Pair again** on the Analysers
   page and enter the code from `.env`.
 - An online installation started with `docker compose up -d` has no code
-  until you set one: put any value in `ANALYZER_BRIDGE_PAIRING_CODE` in
+  until you set one: put a private random value in `ANALYZER_BRIDGE_PAIRING_CODE` in
   `.env` before the first start, or enter the code the Bridge logs
   (`docker logs openelis-analyzer-bridge`) on the Analysers page.
 - Analysers on the lab network send to the host on port 12001 (ASTM LIS01-A
@@ -307,47 +275,29 @@ It holds, under `analyzers`, each analyser's old settings by column name, and
 under each removed table's name (for example `analyzer_test_map`) its rows.
 Note your analysers' addresses and test codes before you upgrade as well.
 
-## RELEASING
+## Publishing a distribution
 
-OpenELIS-Global-2 and the analyser Bridge
-([openelis-analyzer-bridge](https://github.com/DIGI-UW/openelis-analyzer-bridge))
-are released separately and have their own version numbers, so every release
-here names both. `docker-compose.yml` on `main` runs the `:develop` images,
-including OpenELIS develop's own Bridge build
-(`itechuw/openelis-global-2-analyzer-bridge:develop`); a release pins the
-OpenELIS images to the OpenELIS version and the Bridge to
-`itechuw/openelis-analyzer-bridge:<bridge version>`.
+OE2 owns image builds, tests and publication. This repository packages configuration
+and consumes OE2's `deployment-manifest.json`; it does not build application images
+or select an independent Bridge version.
 
-To release, open the
-[Build OpenELIS-Global-2 Offline Docker Images](https://github.com/DIGI-UW/openelis-docker/actions/workflows/build-installer.yml)
-workflow, choose Run workflow and enter:
+After the OE2 release has its manifest, run
+[Publish tested distribution](https://github.com/DIGI-UW/openelis-docker/actions/workflows/release-distribution.yml)
+on `main` with that release version. The workflow checks the manifest against the
+OE2 tag's commit, writes its image digests into Compose and creates a distribution
+tag of the same version. The mock image remains in the source manifest for evidence
+but is not installed in a lab. A retry verifies an existing tag; it never moves it
+or replaces a release asset. A changed image set requires a new OE2 release.
 
-- `version`: the OpenELIS-Global-2 release tag, for example `3.3.0`. It is
-  also the version of the release here.
-- `bridge_version`: the analyser Bridge release to ship with it, for example
-  `3.4.1`. Use the Bridge release that OpenELIS version was built and tested
-  with; this prints it:
+The initial manifest-enabled OE2 images must be published before this workflow can
+produce a usable distribution. Older releases without that manifest cannot use it.
+Current releases follow reviewed `main` commits; supported older maintenance lines
+retain their OE2 release-policy exception.
 
-      ./scripts/bridge-version-for.sh 3.3.0
-
-The workflow checks that every image exists on Docker Hub, pins
-`docker-compose.yml` to both versions (`scripts/pin-versions.sh`), refuses any
-moving tag left (`scripts/check-release-pins.sh`), commits and tags the
-result, creates the release when it does not exist, then builds the package
-with the same two versions and attaches it. It releases from `main` (or the
-branch or commit given as `base_ref`), so running it again for an existing
-version moves that tag onto the current packaging and replaces the package.
-The workflow also
-runs when a release is published here, and once a day for the latest
-OpenELIS-Global-2 release that still has no package; those runs take the
-Bridge release OpenELIS was built with, and warn when a version given by hand
-differs from it.
-
-To build a package yourself, run `./build.sh <openelis version> <bridge version>`,
-for example `./build.sh 3.3.0 3.4.1` (or `./build.sh develop develop` for a
-test package of the develop images). It pins a copy of `docker-compose.yml` to
-both versions, pulls every image that copy names, saves them into one archive
-and writes the installer to `OEDockerInstaller/`.
+The OE2 **Publish images / Deploy testing** workflow is the sole owner of the shared
+testing server. This repository has no second server-deployment workflow. Local
+source development remains in OE2's development launcher; normal installations use
+Docker Compose and published images.
 
 ### Adopting private initial credentials on an existing installation
 
@@ -359,10 +309,6 @@ file is sufficient: the application does not read it or alter the existing login
 Do not delete volumes to force initialization. Previously shared passwords need
 an explicit rotation; this upgrade does not claim to rotate them.
 
-The testing deployment workflow preserves the server's `.env` while updating
-the checkout. Provision the credentials and initial password file before using
-that workflow with these images.
-
-The package builder copies `.env.example`, never the builder's local `.env`.
+The distribution contains only `.env.example`, never an installation's `.env`.
 Use matching application and database releases that support these credentials.
 Hashed administrator password files are not supported.

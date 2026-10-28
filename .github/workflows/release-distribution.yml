@@ -1,0 +1,72 @@
+name: Publish tested distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable OE2 release whose deployment manifest is ready
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-distribution
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 -m pip install PyYAML==6.0.2
+      - run: python3 -m unittest discover -s tests -v
+      - name: Read the tested OE2 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo 'Select a stable release'; exit 1; }
+          gh release view "$VERSION" --repo DIGI-UW/OpenELIS-Global-2 --json isDraft,isPrerelease > "$RUNNER_TEMP/release.json"
+          jq -e '.isDraft == false and .isPrerelease == false' "$RUNNER_TEMP/release.json"
+          gh release download "$VERSION" --repo DIGI-UW/OpenELIS-Global-2 --pattern deployment-manifest.json --dir "$RUNNER_TEMP/oe-release"
+          commit=$(gh api "repos/DIGI-UW/OpenELIS-Global-2/commits/refs/tags/$VERSION" --jq .sha)
+          echo "OE_RELEASE_COMMIT=$commit" >> "$GITHUB_ENV"
+          # Keep the current validator when inspecting an existing immutable tag.
+          cp scripts/apply-release-manifest.py "$RUNNER_TEMP/apply-release-manifest.py"
+      - name: Prepare or verify the immutable distribution tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            git checkout --detach "refs/tags/$VERSION"
+            cmp deployment-manifest.json "$RUNNER_TEMP/oe-release/deployment-manifest.json"
+            python3 "$RUNNER_TEMP/apply-release-manifest.py" deployment-manifest.json "$VERSION" "$OE_RELEASE_COMMIT" --check
+          else
+            cp "$RUNNER_TEMP/oe-release/deployment-manifest.json" deployment-manifest.json
+            python3 scripts/apply-release-manifest.py deployment-manifest.json "$VERSION" "$OE_RELEASE_COMMIT"
+            # Validation only: these placeholders are not written to the package.
+            OE_DB_PASSWORD=validation ADMIN_PASSWORD=validation POSTGRES_PASSWORD=validation \
+              docker compose --env-file .env.example config --quiet
+            git config user.name 'github-actions[bot]'
+            git config user.email 'github-actions[bot]@users.noreply.github.com'
+            git add docker-compose.yml deployment-manifest.json
+            git commit -m "release: distribute tested OpenELIS $VERSION images"
+            git tag "$VERSION"
+            git push origin "refs/tags/$VERSION"
+          fi
+      - name: Publish the distribution release without replacing existing assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$VERSION" >/dev/null 2>&1; then
+            printf 'Published-image distribution for OpenELIS %s.\n\nThe tagged Compose file uses the exact image digests in deployment-manifest.json from the tested OE2 release. Follow the README at this tag.\n' "$VERSION" > "$RUNNER_TEMP/notes.md"
+            gh release create "$VERSION" --verify-tag --title "OpenELIS distribution $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          fi

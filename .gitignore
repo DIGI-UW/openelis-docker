@@ -29,3 +29,6 @@ configs/properties/ChangedSystemConfiguration.properties
 
 .env
 /secrets/
+
+__pycache__/
+*.pyc

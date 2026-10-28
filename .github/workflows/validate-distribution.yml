@@ -1,0 +1,35 @@
+name: Validate distribution
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  distribution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install PyYAML==6.0.2
+      - run: python3 -m unittest discover -s tests -v
+      - name: Validate the template with explicit development selection
+        env:
+          OE_IMAGE_TAG: develop
+          OE_DB_PASSWORD: validation
+          ADMIN_PASSWORD: validation
+          POSTGRES_PASSWORD: validation
+        run: docker compose --env-file .env.example config --quiet
+      - name: Refuse an unselected template
+        env:
+          OE_DB_PASSWORD: validation
+          ADMIN_PASSWORD: validation
+          POSTGRES_PASSWORD: validation
+        run: |
+          unset OE_IMAGE_TAG
+          if docker compose --env-file .env.example config --quiet >output.log 2>&1; then
+            echo 'Unreleased template unexpectedly selected images'; exit 1
+          fi
+          grep -q 'Use a distro release' output.log

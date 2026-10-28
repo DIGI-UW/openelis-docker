@@ -29,7 +29,7 @@ x-loki-logging:
 services:
     certs:
         container_name: oe-certs 
-        image: itechuw/openelis-global-2-certs:develop
+        image: itechuw/openelis-global-2-certs:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         platform: linux/amd64
         restart: "no"
         # The OE2 image packages the authoritative installation initializer.
@@ -57,7 +57,7 @@ services:
                 nocopy: true
     db.openelis.org:
         container_name: openelisglobal-database 
-        image: itechuw/openelis-global-2-database:develop
+        image: itechuw/openelis-global-2-database:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         platform: linux/amd64
         ports:
             - "15432:5432"
@@ -83,7 +83,7 @@ services:
             
     oe.openelis.org:
         container_name: openelisglobal-webapp 
-        image: itechuw/openelis-global-2:develop 
+        image: itechuw/openelis-global-2:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         platform: linux/amd64  
         depends_on:
             db.openelis.org:
@@ -143,7 +143,7 @@ services:
     # each start, so the Bridge can create a folder per analyser.
     analyzer-imports-owner:
         container_name: openelis-analyzer-imports-owner
-        image: itechuw/openelis-global-2-analyzer-bridge:develop
+        image: itechuw/openelis-global-2-analyzer-bridge:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         platform: linux/amd64
         user: "0:0"
         network_mode: none
@@ -155,7 +155,7 @@ services:
 
     openelis-analyzer-bridge:
         container_name: openelis-analyzer-bridge
-        image: itechuw/openelis-global-2-analyzer-bridge:develop
+        image: itechuw/openelis-global-2-analyzer-bridge:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         platform: linux/amd64
         depends_on:
             certs:
@@ -206,7 +206,7 @@ services:
             
     fhir.openelis.org:
         container_name: external-fhir-api
-        image: itechuw/openelis-global-2-fhir:develop
+        image: itechuw/openelis-global-2-fhir:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         platform: linux/amd64
         ports:
             - "${OE_FHIR_HTTP_PORT:-8081}:8080"
@@ -244,7 +244,7 @@ services:
               volume:
                 nocopy: true
     frontend.openelis.org:
-        image: itechuw/openelis-global-2-frontend:develop
+        image: itechuw/openelis-global-2-frontend:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         container_name: openelisglobal-front-end
         platform: linux/amd64
         restart: always
@@ -263,7 +263,7 @@ services:
         tty: true
 
     proxy:
-        image: itechuw/openelis-global-2-proxy:develop
+        image: itechuw/openelis-global-2-proxy:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
         container_name: openelisglobal-proxy
         platform: linux/amd64
         ports:
@@ -294,7 +294,7 @@ services:
    
     autoheal:
         container_name: autoheal-oe
-        image: willfarrell/autoheal:1.2.0
+        image: willfarrell/autoheal:1.2.0@sha256:31f580ef0279eaced5b38d631b08c474d70d8403c1c2fdd6ddcf2e879d5f3f7c
         tty: true
         restart: always
         networks:
