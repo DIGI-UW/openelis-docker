@@ -244,7 +244,8 @@ services:
             - BRIDGE_FILE_STATE_STORE_PATH=/data/openelis-analyzer-bridge/state.db
             - BRIDGE_OUTBOX_DB_PATH=/data/openelis-analyzer-bridge/outbox.db
             # Results go to {uri}/analyzer/fhir; the Bridge checks OpenELIS at {uri}/health.
-            - ORG_ITECH_AHB_FORWARD_HTTP_SERVER_URI=https://oe.openelis.org:8443/OpenELIS-Global
+            # OpenELIS serves its API under /api/OpenELIS-Global.
+            - ORG_ITECH_AHB_FORWARD_HTTP_SERVER_URI=https://oe.openelis.org:8443/api/OpenELIS-Global
             # OpenELIS's certificate is in the stack's trust store.
             - BRIDGE_TRUSTSTORE_PATH=${SSL_TRUSTSTORE_PATH}
             - BRIDGE_TRUSTSTORE_PASSWORD=${SSL_TRUSTSTORE_PASSWORD}

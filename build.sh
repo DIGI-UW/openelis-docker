@@ -49,6 +49,7 @@ mkdir -p "${stageDir}/dockerImage" "${stageDir}/configs"
 cp ./install/run.sh "${stageDir}/run.sh"
 cp ./install/upgrade.sh "${stageDir}/upgrade.sh"
 cp docker-compose.yml "${stageDir}/docker-compose.yml"
+cp docker-compose.light.yml "${stageDir}/docker-compose.light.yml"
 ./scripts/pin-versions.sh "${projectVersion}" "${bridgeVersion}" "${stageDir}/docker-compose.yml"
 if [ "${projectVersion}" != "develop" ]; then
     ./scripts/check-release-pins.sh "${stageDir}/docker-compose.yml"
