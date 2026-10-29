@@ -1,12 +1,12 @@
 # Light stack: OpenELIS without the FHIR server and the analyser Bridge, for a
-# lab that needs no external integration (no analysers, no EMR or other FHIR
-# exchange). Every OpenELIS workflow then runs from its own database.
+# lab that needs no exchange with other systems (no analysers, no EMR or
+# consolidated-server orders, no referrals, EQA, shipments or client
+# registry). Every lab workflow then runs from the OpenELIS database alone.
 #
-#     docker compose -f docker-compose.yml -f docker-compose.light.yml up -d
-#
-# or put COMPOSE_FILE=docker-compose.yml:docker-compose.light.yml in .env and
-# run `docker compose up -d` as usual. To return to the full stack, start
-# without this file (and remove that line from .env).
+# Selected by the COMPOSE_FILE line in .env (remove its #), after which
+# `docker compose up -d` removes the two containers; put the # back and run it
+# again to return to the full stack. Scaling the two services to zero, rather
+# than a profile, is what lets one `docker compose up -d` do both.
 services:
     oe.openelis.org:
         environment:
@@ -16,9 +16,10 @@ services:
             # No analyser Bridge to pair with.
             - ANALYZER_BRIDGE_URL=
 
-    # Only started with the "integration" profile, which this file leaves off.
     fhir.openelis.org:
-        profiles: ["integration"]
+        deploy:
+            replicas: 0
 
     openelis-analyzer-bridge:
-        profiles: ["integration"]
+        deploy:
+            replicas: 0

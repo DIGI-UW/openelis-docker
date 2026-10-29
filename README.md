@@ -193,15 +193,15 @@ In [.env](./.env), remove the `#` in front of this line, then start as usual:
 
     docker compose up -d
 
-That is all: `docker-compose.light.yml` leaves the two services out and clears
-the FHIR store and the Bridge address on the webapp, and the offline package's
-`run.sh` and `upgrade.sh` honour the same line. The Analysers page then says
-that no Bridge address is configured.
+That is all: `docker-compose.light.yml` scales the two services to zero and
+clears the FHIR store and the Bridge address on the webapp, and the offline
+package's `run.sh` and `upgrade.sh` honour the same line. The Analysers page
+then says that no Bridge address is configured.
 
-An installation that already runs the full stack switches with
-`docker compose up -d --remove-orphans`, which also removes the two
-containers; the database is untouched. Put the `#` back and run
-`docker compose up -d` to return to the full stack.
+The same two steps switch an installation that already runs the full stack:
+`docker compose up -d` removes the two containers and the database is
+untouched. Put the `#` back and run `docker compose up -d` to return to the
+full stack.
 
 ## ANALYSERS
 
