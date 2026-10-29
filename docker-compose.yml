@@ -109,7 +109,6 @@ services:
         volumes:
             -  key_trust-store-volume:/etc/openelis-global
             -  lucene_index-vol:/var/lib/lucene_index
-            - ./configs/plugins/:/var/lib/openelis-global/plugins
             - ./configs/logs/oeLogs:/var/lib/openelis-global/logs
             - ./configs/logs/tomcatLogs/:/usr/local/tomcat/logs
             - ./configs/properties:/var/lib/openelis-global/properties
@@ -123,70 +122,6 @@ services:
         secrets:
             - source: common.properties
 
-    # Analysers send their results to the Bridge, which hands them to
-    # OpenELIS; the Analysers pages manage them through it. OpenELIS pairs with
-    # it on start using ANALYZER_BRIDGE_PAIRING_CODE from .env.
-    # The Bridge runs as its own non-root user, and the import folder belongs
-    # to whoever installed the stack; this gives the folder to that user on
-    # each start, so the Bridge can create a folder per analyser.
-    analyzer-imports-owner:
-        container_name: openelis-analyzer-imports-owner
-        image: itechuw/openelis-global-2-analyzer-bridge:develop
-        platform: linux/amd64
-        user: "0:0"
-        network_mode: none
-        entrypoint: ["sh", "-c", "chown \"$$(id -u astm):$$(id -g astm)\" /data/analyzer-imports"]
-        volumes:
-            - ./configs/analyzer-imports:/data/analyzer-imports
-        restart: "no"
-        logging: *local-logging
-
-    openelis-analyzer-bridge:
-        container_name: openelis-analyzer-bridge
-        image: itechuw/openelis-global-2-analyzer-bridge:develop
-        platform: linux/amd64
-        depends_on:
-            certs:
-                condition: service_completed_successfully
-            analyzer-imports-owner:
-                condition: service_completed_successfully
-        restart: always
-        ports:
-            # ASTM LIS01-A over TCP, ASTM E1381, HL7 v2 over MLLP: the ports
-            # analysers on the lab network connect to.
-            - "12001:12001"
-            - "12011:12011"
-            - "2575:2575"
-        volumes:
-            - key_trust-store-volume:/etc/openelis-global:ro
-            # Result files from file-based analysers: one folder per analyser,
-            # named on its Analysers page.
-            - ./configs/analyzer-imports:/data/analyzer-imports
-            # Its own TLS identity, the pairing with OpenELIS, the analyser
-            # connections and the results OpenELIS has not accepted yet. It must
-            # survive container recreation and upgrades, or OpenELIS no longer
-            # recognises the Bridge and undelivered results are lost.
-            - bridge-state:/data/openelis-analyzer-bridge
-        environment:
-            - TZ=America/New_York
-            - BRIDGE_PAIRING_CODE=${ANALYZER_BRIDGE_PAIRING_CODE:-}
-            - BRIDGE_FILE_ENABLED=true
-            - BRIDGE_FILE_STATE_STORE_PATH=/data/openelis-analyzer-bridge/state.db
-            - BRIDGE_OUTBOX_DB_PATH=/data/openelis-analyzer-bridge/outbox.db
-            # Results go to {uri}/analyzer/fhir; the Bridge checks OpenELIS at {uri}/health.
-            - ORG_ITECH_AHB_FORWARD_HTTP_SERVER_URI=https://oe.openelis.org:8443/OpenELIS-Global
-            # OpenELIS's certificate is in the stack's trust store.
-            - BRIDGE_TRUSTSTORE_PATH=${SSL_TRUSTSTORE_PATH}
-            - BRIDGE_TRUSTSTORE_PASSWORD=${SSL_TRUSTSTORE_PASSWORD}
-            - BRIDGE_TRUSTSTORE_TYPE=PKCS12
-            - ORG_ITECH_AHB_MLLP_ENABLED=true
-            - ORG_ITECH_AHB_MLLP_PORT=2575
-        networks:
-            openelis-network:
-                aliases:
-                    - bridge.openelis.org
-        logging: *local-logging
-            
     fhir.openelis.org:
         container_name: external-fhir-api
         image: itechuw/openelis-global-2-fhir:develop
@@ -269,8 +204,72 @@ services:
             - openelis-network
         logging: *local-logging    
         depends_on:
-            - certs    
-   
+            - certs
+
+    # Analysers send their results to the Bridge, which hands them to
+    # OpenELIS; the Analysers pages manage them through it. OpenELIS pairs with
+    # it on start using ANALYZER_BRIDGE_PAIRING_CODE from .env.
+    # The Bridge runs as its own non-root user, and the import folder belongs
+    # to whoever installed the stack; this gives the folder to that user on
+    # each start, so the Bridge can create a folder per analyser.
+    analyzer-imports-owner:
+        container_name: openelis-analyzer-imports-owner
+        image: itechuw/openelis-global-2-analyzer-bridge:develop
+        platform: linux/amd64
+        user: "0:0"
+        network_mode: none
+        entrypoint: ["sh", "-c", "chown \"$$(id -u astm):$$(id -g astm)\" /data/analyzer-imports"]
+        volumes:
+            - ./configs/analyzer-imports:/data/analyzer-imports
+        restart: "no"
+        logging: *local-logging
+
+    openelis-analyzer-bridge:
+        container_name: openelis-analyzer-bridge
+        image: itechuw/openelis-global-2-analyzer-bridge:develop
+        platform: linux/amd64
+        depends_on:
+            certs:
+                condition: service_completed_successfully
+            analyzer-imports-owner:
+                condition: service_completed_successfully
+        restart: always
+        ports:
+            # ASTM LIS01-A over TCP, ASTM E1381, HL7 v2 over MLLP: the ports
+            # analysers on the lab network connect to.
+            - "12001:12001"
+            - "12011:12011"
+            - "2575:2575"
+        volumes:
+            - key_trust-store-volume:/etc/openelis-global:ro
+            # Result files from file-based analysers: one folder per analyser,
+            # named on its Analysers page.
+            - ./configs/analyzer-imports:/data/analyzer-imports
+            # Its own TLS identity, the pairing with OpenELIS, the analyser
+            # connections and the results OpenELIS has not accepted yet. It must
+            # survive container recreation and upgrades, or OpenELIS no longer
+            # recognises the Bridge and undelivered results are lost.
+            - bridge-state:/data/openelis-analyzer-bridge
+        environment:
+            - TZ=America/New_York
+            - BRIDGE_PAIRING_CODE=${ANALYZER_BRIDGE_PAIRING_CODE:-}
+            - BRIDGE_FILE_ENABLED=true
+            - BRIDGE_FILE_STATE_STORE_PATH=/data/openelis-analyzer-bridge/state.db
+            - BRIDGE_OUTBOX_DB_PATH=/data/openelis-analyzer-bridge/outbox.db
+            # Results go to {uri}/analyzer/fhir; the Bridge checks OpenELIS at {uri}/health.
+            - ORG_ITECH_AHB_FORWARD_HTTP_SERVER_URI=https://oe.openelis.org:8443/OpenELIS-Global
+            # OpenELIS's certificate is in the stack's trust store.
+            - BRIDGE_TRUSTSTORE_PATH=${SSL_TRUSTSTORE_PATH}
+            - BRIDGE_TRUSTSTORE_PASSWORD=${SSL_TRUSTSTORE_PASSWORD}
+            - BRIDGE_TRUSTSTORE_TYPE=PKCS12
+            - ORG_ITECH_AHB_MLLP_ENABLED=true
+            - ORG_ITECH_AHB_MLLP_PORT=2575
+        networks:
+            openelis-network:
+                aliases:
+                    - bridge.openelis.org
+        logging: *local-logging
+
     autoheal:
         container_name: autoheal-oe
         image: willfarrell/autoheal:1.2.0
