@@ -187,23 +187,21 @@ and results from other laboratories, EQA exchange, sample shipments and the
 client registry. Questionnaires are kept in the database when there is no FHIR
 store.
 
-`docker-compose.light.yml` leaves the FHIR server and the Bridge out and tells
-OpenELIS not to use them: it sets `org.openelisglobal.fhirstore.uri` empty
-through the webapp's environment (over the value in
-`configs/properties/common.properties`) and clears the Bridge address.
-
-    docker compose -f docker-compose.yml -f docker-compose.light.yml up -d
-
-To always start light, put this line in `.env` and run `docker compose up -d`
-as usual; the offline package's `run.sh` and `upgrade.sh` then start light too:
+In [.env](./.env), remove the `#` in front of this line, then start as usual:
 
     COMPOSE_FILE=docker-compose.yml:docker-compose.light.yml
 
-An installation that already runs the full stack switches by adding the line
-and starting with `docker compose up -d --remove-orphans`, which stops and
-removes the two containers; the database is untouched. To return to the full
-stack, remove the line and run `docker compose up -d`. The Analysers page then
-says that no Bridge address is configured.
+    docker compose up -d
+
+That is all: `docker-compose.light.yml` leaves the two services out and clears
+the FHIR store and the Bridge address on the webapp, and the offline package's
+`run.sh` and `upgrade.sh` honour the same line. The Analysers page then says
+that no Bridge address is configured.
+
+An installation that already runs the full stack switches with
+`docker compose up -d --remove-orphans`, which also removes the two
+containers; the database is untouched. Put the `#` back and run
+`docker compose up -d` to return to the full stack.
 
 ## ANALYSERS
 
