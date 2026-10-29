@@ -33,6 +33,17 @@ ensure_pairing_code() {
     echo "generated the analyser Bridge pairing code in ${env_file}"
 }
 
+# The Bridge runs as its own user (astm) and creates a folder per analyser
+# under configs/analyzer-imports, so that folder must let other users write.
+open_imports_folder() {
+    local dir=$1/configs/analyzer-imports
+    mkdir -p "${dir}"
+    if chmod 1777 "${dir}"; then
+        return
+    fi
+    echo "could not make ${dir} writable for the analyser Bridge; run: sudo chmod 1777 ${dir}" >&2
+}
+
 if [ $# -gt 0 ]; then
     for required in docker-compose.yml .env configs; do
         if [ ! -e "${target}/${required}" ]; then
@@ -95,6 +106,7 @@ update_nginx_conf() {
 update_nginx_conf
 
 ensure_pairing_code "${target}/.env"
+open_imports_folder "${target}"
 
 cd "${target}"
 if docker compose version >/dev/null 2>&1; then

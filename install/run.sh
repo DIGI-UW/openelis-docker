@@ -21,10 +21,22 @@ ensure_pairing_code() {
     echo "generated the analyser Bridge pairing code in ${env_file}"
 }
 
+# The Bridge runs as its own user (astm) and creates a folder per analyser
+# under configs/analyzer-imports, so that folder must let other users write.
+open_imports_folder() {
+    local dir=$1/configs/analyzer-imports
+    mkdir -p "${dir}"
+    if chmod 1777 "${dir}"; then
+        return
+    fi
+    echo "could not make ${dir} writable for the analyser Bridge; run: sudo chmod 1777 ${dir}" >&2
+}
+
 echo "loading the images from dockerImage/openelis-images.tar.gz (this takes a few minutes)"
 gunzip -c dockerImage/openelis-images.tar.gz | docker load
 
 ensure_pairing_code .env
+open_imports_folder .
 
 if docker compose version >/dev/null 2>&1; then
     docker compose up -d --pull never

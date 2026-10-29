@@ -209,29 +209,16 @@ services:
     # Analysers send their results to the Bridge, which hands them to
     # OpenELIS; the Analysers pages manage them through it. OpenELIS pairs with
     # it on start using ANALYZER_BRIDGE_PAIRING_CODE from .env.
-    # The Bridge runs as its own non-root user, and the import folder belongs
-    # to whoever installed the stack; this gives the folder to that user on
-    # each start, so the Bridge can create a folder per analyser.
-    analyzer-imports-owner:
-        container_name: openelis-analyzer-imports-owner
-        image: itechuw/openelis-global-2-analyzer-bridge:develop
-        platform: linux/amd64
-        user: "0:0"
-        network_mode: none
-        entrypoint: ["sh", "-c", "chown \"$$(id -u astm):$$(id -g astm)\" /data/analyzer-imports"]
-        volumes:
-            - ./configs/analyzer-imports:/data/analyzer-imports
-        restart: "no"
-        logging: *local-logging
-
+    # The Bridge runs as its own user (astm, uid 9257) and creates a folder per
+    # analyser under configs/analyzer-imports, so that folder must let other
+    # users write: run.sh and upgrade.sh set it to 1777; an online install runs
+    # `chmod 1777 configs/analyzer-imports` once (see README).
     openelis-analyzer-bridge:
         container_name: openelis-analyzer-bridge
         image: itechuw/openelis-global-2-analyzer-bridge:develop
         platform: linux/amd64
         depends_on:
             certs:
-                condition: service_completed_successfully
-            analyzer-imports-owner:
                 condition: service_completed_successfully
         restart: always
         ports:
