@@ -33,6 +33,17 @@ ensure_pairing_code() {
     echo "generated the analyser Bridge pairing code in ${env_file}"
 }
 
+# The light stack (no FHIR server, no analyser Bridge) is one line in .env;
+# an installation from before it gets the line, commented out, so the README
+# instruction (remove the #) applies to it too.
+ensure_light_hint() {
+    local env_file=$1
+    if grep -q '^#\{0,1\}COMPOSE_FILE=' "${env_file}"; then
+        return
+    fi
+    printf '\n# Light stack: no FHIR server, no analyser Bridge. Remove the # to run OpenELIS\n# without them (lab workflows only, no exchange with other systems).\n#COMPOSE_FILE=docker-compose.yml:docker-compose.light.yml\n' >> "${env_file}"
+}
+
 # The Bridge runs as its own user (astm) and creates a folder per analyser
 # under configs/analyzer-imports, so that folder must let other users write.
 open_imports_folder() {
@@ -108,6 +119,7 @@ update_nginx_conf() {
 update_nginx_conf
 
 ensure_pairing_code "${target}/.env"
+ensure_light_hint "${target}/.env"
 open_imports_folder "${target}"
 
 cd "${target}"
