@@ -90,8 +90,6 @@ for entry in configs/*; do
         echo "added ${entry}"
     fi
 done
-# The certs service runs this script; it changes with the package.
-cp configs/certs/ensure-stores.sh "${target}/configs/certs/ensure-stores.sh"
 
 # nginx.conf as shipped by 3.2.1.x (d12bdd...) and by 3.2.3.0 and 3.3.0 (a2e291...).
 # Those forward the host without its port, so they are replaced; a file

@@ -95,7 +95,7 @@ jobs:
           fi
           echo "bridge=$BRIDGE" >> "$GITHUB_OUTPUT"
           echo "analyser Bridge version: $BRIDGE"
-          for image in openelis-global-2 openelis-global-2-frontend openelis-global-2-fhir openelis-global-2-database openelis-global-2-proxy; do
+          for image in openelis-global-2 openelis-global-2-frontend openelis-global-2-fhir openelis-global-2-database openelis-global-2-proxy openelis-global-2-certs; do
             if ! docker manifest inspect "itechuw/${image}:${TAG}" >/dev/null 2>&1; then
               if [ "$EVENT" = schedule ]; then
                 echo "::warning::itechuw/${image}:${TAG} is not on Docker Hub yet; trying again tomorrow"

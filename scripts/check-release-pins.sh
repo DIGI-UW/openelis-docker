@@ -1,7 +1,6 @@
 #!/bin/bash
 # Fails when a compose file still runs a moving tag (develop, latest, main),
 # so a release never ships images that change after it is published.
-# itechuw/certgen has no versions and is allowed to track main.
 #
 #   ./scripts/check-release-pins.sh [compose file]
 set -euo pipefail
@@ -13,7 +12,6 @@ while read -r image; do
     repo=${image%%:*}
     tag=${image#*:}
     tag=${tag%%@*}
-    [ "${repo}" = "itechuw/certgen" ] && continue
     case "${tag}" in
         develop|latest|main|master|nightly|"${image}"|"")
             echo "error: ${image} is a moving tag; pin it with scripts/pin-versions.sh" >&2

@@ -15,10 +15,22 @@ You can find more information on how to set up OpenELIS at our [docs page](http:
 
 ### Running OpenELIS Global with Docker Compose
 
-    docker compose up -d
+Use a released version of this repository, which pins matching application and
+support images. The `main` branch tracks development images and is for testing.
+Configure `.env` before the first start, then use Docker Compose directly:
 
-Every service has a restart policy, so the stack comes back on its own after
-the server reboots.
+```sh
+docker compose pull
+docker compose up -d --no-build
+docker compose ps
+```
+
+No setup script, host Java installation, manual certificate commands, or source
+build is required. Docker manages the containers, persistent volumes and startup
+dependencies. The one-shot `certs` service initializes installation keys before
+consumers start; its successful `Exited (0)` state is expected. Check a startup
+failure with `docker compose logs certs`. Do not remove volumes to clear an error.
+Long-running services have restart policies for server reboots.
 
 #### The instance can be accessed at
 
@@ -38,8 +50,45 @@ All of these live in the [.env](./.env) file. Set them before the first start.
 |----------|--------------|
 | `OE_DB_PASSWORD` | Password of the `clinlims` database user the application connects with |
 | `ADMIN_PASSWORD` | Password of the database superuser (`postgres`). It is not the application's admin user |
-| `SSL_KEYSTORE_PASSWORD`, `SSL_TRUSTSTORE_PASSWORD` | Passwords of the keystore and truststore the webapp and the FHIR server use between them. The `certs` service rebuilds the stores with these passwords whenever they change, so editing `.env` and running `docker compose up -d` is enough |
-| `OE_ENCRYPTION_PASSWORD` | Key that encrypts secrets stored in the database (passwords of external connections). Set it once; changing it later makes those secrets unreadable. Installations that predate it keep using `SSL_KEYSTORE_PASSWORD` |
+| `SSL_KEYSTORE_PASSWORD`, `SSL_TRUSTSTORE_PASSWORD` | Passwords of the TLS stores. Set these before first start and retain them. An incorrect existing password stops initialization without rebuilding stores |
+| `OE_ENCRYPTION_PASSWORD` | Leave empty for a fresh installation to use its generated `install/encryption.key`. Existing installations must preserve their effective old key; changing it makes stored connection secrets unreadable |
+
+### Installation keys and existing installations
+
+The `certs` image is released with OpenELIS and contains tools and the initializer,
+not installation keys. `docker compose up -d` creates an independent TLS identity
+and database-secret encryption key in empty volumes. The webapp, FHIR server and
+proxy wait for initialization to finish. Restart retains the same keys. Incomplete
+security volumes or incorrect passwords stop initialization; restore the complete
+backup rather than deleting individual files to retry.
+
+Back up the database, `key_trust-store-volume`, `keys-vol`, `certs-vol`, `.env`, and
+any externally managed certificates together. Keep backups private. The internal
+private stores are readable by the existing Tomcat TLS group (8443). The public
+truststore is also readable by the Bridge. The installation key directory and
+proxy private key are restricted to the root initialization processes.
+
+**Existing installations require a separate adoption step.** Take and verify a
+backup, stop application consumers, and retain the effective encryption password
+already used by that installation in `OE_ENCRYPTION_PASSWORD`. Do not guess it or
+replace it with a new random value. Earlier versions sometimes used the keystore
+password; check the site's effective configuration. With that value exported in
+the shell without putting it on the command line, run:
+
+```sh
+docker compose run --rm -e OE_ENCRYPTION_PASSWORD certs --upgrade-existing
+docker compose up -d
+```
+
+Adoption replaces a recognized old shared TLS identity, preserves site-owned
+certificates and other trusted partners, and records the existing encryption key
+if no installation key file exists. It does not convert encrypted database values.
+Ordinary startup never invokes this command. Planned replacement of an internal
+keystore also requires explicit adoption; externally managed proxy certificates
+remain under the operator's control.
+
+This candidate requires the corresponding OE2 certificate-tool release. Do not
+mix it with an older application image that cannot load the installation key.
 
 ### Configuring the TLS Certificate (Optional)
 
@@ -172,7 +221,7 @@ both versions.
    tags in your `docker-compose.yml` to the versions in
    `dockerImage/images.txt`, add the `openelis-analyzer-bridge` service and
    the `bridge-state` volume from the package's `docker-compose.yml`, copy
-   `configs/certs/` and `configs/analyzer-imports/`, and run
+   `configs/analyzer-imports/`, and complete the explicit key adoption above before running
    `docker compose up -d` there.
 
 ## LIGHT INSTALLATION
