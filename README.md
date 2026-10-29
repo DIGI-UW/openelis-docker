@@ -196,7 +196,8 @@ In [.env](./.env), remove the `#` in front of this line, then start as usual:
 That is all: `docker-compose.light.yml` scales the two services to zero and
 clears the FHIR store and the Bridge address on the webapp, and the offline
 package's `run.sh` and `upgrade.sh` honour the same line. The Analysers page
-then says that no Bridge address is configured.
+then shows no analysers (from the release after 3.3.0 it says that no Bridge
+address is configured).
 
 The same two steps switch an installation that already runs the full stack:
 `docker compose up -d` removes the two containers and the database is
