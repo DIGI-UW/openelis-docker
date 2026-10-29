@@ -50,7 +50,7 @@ services:
 
     db.openelis.org:
         container_name: openelisglobal-database 
-        image: itechuw/openelis-global-2-database:develop
+        image: itechuw/openelis-global-2-database:3.3.0
         platform: linux/amd64
         ports:
             - "15432:5432"
@@ -75,7 +75,7 @@ services:
             
     oe.openelis.org:
         container_name: openelisglobal-webapp 
-        image: itechuw/openelis-global-2:develop 
+        image: itechuw/openelis-global-2:3.3.0 
         platform: linux/amd64  
         depends_on:
             db.openelis.org:
@@ -124,7 +124,7 @@ services:
 
     fhir.openelis.org:
         container_name: external-fhir-api
-        image: itechuw/openelis-global-2-fhir:develop
+        image: itechuw/openelis-global-2-fhir:3.3.0
         platform: linux/amd64
         ports:
             - "${OE_FHIR_HTTP_PORT:-8081}:8080"
@@ -159,7 +159,7 @@ services:
             -  key_trust-store-volume:/etc/openelis-global 
        
     frontend.openelis.org:
-        image: itechuw/openelis-global-2-frontend:develop
+        image: itechuw/openelis-global-2-frontend:3.3.0
         container_name: openelisglobal-front-end
         platform: linux/amd64
         restart: always
@@ -178,7 +178,7 @@ services:
         tty: true
 
     proxy:
-        image: itechuw/openelis-global-2-proxy:develop
+        image: itechuw/openelis-global-2-proxy:3.3.0
         container_name: openelisglobal-proxy
         platform: linux/amd64
         ports:
@@ -215,7 +215,7 @@ services:
     # `chmod 1777 configs/analyzer-imports` once (see README).
     openelis-analyzer-bridge:
         container_name: openelis-analyzer-bridge
-        image: itechuw/openelis-global-2-analyzer-bridge:develop
+        image: itechuw/openelis-analyzer-bridge:3.4.1
         platform: linux/amd64
         depends_on:
             certs:
