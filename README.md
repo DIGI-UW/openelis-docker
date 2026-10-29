@@ -194,8 +194,12 @@ through it. Since 3.3.0 the Bridge is the only way analysers reach OpenELIS.
   over TCP), 12011 (ASTM E1381) or 2575 (HL7 v2 over MLLP). File-based
   analysers drop their result files into a folder under
   `configs/analyzer-imports/`, named on the analyser's page. The Bridge runs
-  as its own user (`astm`), so the stack gives it `configs/analyzer-imports/`
-  each time it starts, and the Bridge creates each analyser's folder there.
+  as its own user (`astm`, uid 9257) and creates each analyser's folder there,
+  so `configs/analyzer-imports/` must let other users write. `run.sh` and
+  `upgrade.sh` set that; an online installation does it once before the first
+  start:
+
+      chmod 1777 configs/analyzer-imports
 - The Bridge keeps its certificate, the pairing, the analyser connections and
   the results OpenELIS has not accepted yet in the `bridge-state` volume.
   Keep that volume across upgrades.
