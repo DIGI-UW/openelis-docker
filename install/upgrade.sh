@@ -70,6 +70,8 @@ backup="${target}/docker-compose.yml.$(date +%Y%m%d%H%M%S).bak"
 cp "${target}/docker-compose.yml" "${backup}"
 cp docker-compose.yml "${target}/docker-compose.yml"
 echo "replaced ${target}/docker-compose.yml; the previous one is ${backup}"
+# The light variant (no FHIR server, no analyser Bridge) ships with the package.
+cp docker-compose.light.yml "${target}/docker-compose.light.yml"
 
 for entry in configs/*; do
     if [ ! -e "${target}/${entry}" ]; then

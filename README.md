@@ -175,6 +175,36 @@ both versions.
    `configs/certs/` and `configs/analyzer-imports/`, and run
    `docker compose up -d` there.
 
+## LIGHT INSTALLATION
+
+A lab that needs no integration with other systems can run OpenELIS without
+the FHIR server and the analyser Bridge. Every lab workflow (patients, orders,
+sample preparation and labels, results, validation, reports, non-conformities,
+storage, administration) runs from the OpenELIS database alone. The two
+services only serve exchanges with the outside: analysers (through the
+Bridge), electronic orders from an EMR or a consolidated server, referrals to
+and results from other laboratories, EQA exchange, sample shipments and the
+client registry. Questionnaires are kept in the database when there is no FHIR
+store.
+
+`docker-compose.light.yml` leaves the FHIR server and the Bridge out and tells
+OpenELIS not to use them: it sets `org.openelisglobal.fhirstore.uri` empty
+through the webapp's environment (over the value in
+`configs/properties/common.properties`) and clears the Bridge address.
+
+    docker compose -f docker-compose.yml -f docker-compose.light.yml up -d
+
+To always start light, put this line in `.env` and run `docker compose up -d`
+as usual; the offline package's `run.sh` and `upgrade.sh` then start light too:
+
+    COMPOSE_FILE=docker-compose.yml:docker-compose.light.yml
+
+An installation that already runs the full stack switches by adding the line
+and starting with `docker compose up -d --remove-orphans`, which stops and
+removes the two containers; the database is untouched. To return to the full
+stack, remove the line and run `docker compose up -d`. The Analysers page then
+says that no Bridge address is configured.
+
 ## ANALYSERS
 
 Analysers connect to the analyser Bridge (`openelis-analyzer-bridge`), which
