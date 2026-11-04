@@ -75,7 +75,7 @@ services:
             
     oe.openelis.org:
         container_name: openelisglobal-webapp 
-        image: ${OE_WEBAPP_IMAGE:-itechuw/openelis-global-2:develop}
+        image: itechuw/openelis-global-2:develop 
         platform: linux/amd64  
         depends_on:
             db.openelis.org:
@@ -160,7 +160,7 @@ services:
             -  key_trust-store-volume:/etc/openelis-global 
        
     frontend.openelis.org:
-        image: ${OE_FRONTEND_IMAGE:-itechuw/openelis-global-2-frontend:develop}
+        image: itechuw/openelis-global-2-frontend:develop
         container_name: openelisglobal-front-end
         platform: linux/amd64
         restart: always

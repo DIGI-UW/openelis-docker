@@ -262,12 +262,6 @@ The webapp log names the module as it starts (`[module:<id>] STARTED`), the
 module's menu entries appear for the roles that hold its permissions, and
 Admin > Modules lists what was found. Rename the JAR to `.jar.disabled` to
 switch it off; delete it to remove the module.
-
-Until the module system reaches `develop`, it is published from the `modula`
-branch as dev images. To test it, uncomment `OE_WEBAPP_IMAGE` and
-`OE_FRONTEND_IMAGE` in `.env` (they point at the `:modula` dev images) and run
-`docker compose up -d`; comment them out again to return to the develop images.
-
 ## RELEASING
 
 OpenELIS-Global-2 and the analyser Bridge
