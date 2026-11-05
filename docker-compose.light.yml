@@ -7,6 +7,10 @@
 # `docker compose up -d` removes the two containers; put the # back and run it
 # again to return to the full stack. Scaling the two services to zero, rather
 # than a profile, is what lets one `docker compose up -d` do both.
+#
+# A service scaled to zero is still pulled, so pull_policy: never keeps
+# `docker compose up` and `docker compose pull` from downloading images for
+# containers the light stack never runs.
 services:
     oe.openelis.org:
         environment:
@@ -17,9 +21,11 @@ services:
             - ANALYZER_BRIDGE_URL=
 
     fhir.openelis.org:
+        pull_policy: never
         deploy:
             replicas: 0
 
     openelis-analyzer-bridge:
+        pull_policy: never
         deploy:
             replicas: 0

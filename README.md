@@ -296,6 +296,21 @@ It holds, under `analyzers`, each analyser's old settings by column name, and
 under each removed table's name (for example `analyzer_test_map`) its rows.
 Note your analysers' addresses and test codes before you upgrade as well.
 
+## MODULES
+
+OpenELIS loads optional modules (self-contained features shipped as one JAR,
+see the core's `docs/modules.md`) from `configs/modules/`. Copy a module's JAR
+there and restart the webapp:
+
+```bash
+cp specimen-followup-1.0.0.jar configs/modules/
+docker compose restart oe.openelis.org
+```
+
+The webapp log names the module as it starts (`[module:<id>] STARTED`), the
+module's menu entries appear for the roles that hold its permissions, and
+Admin > Modules lists what was found. Rename the JAR to `.jar.disabled` to
+switch it off; delete it to remove the module.
 ## RELEASING
 
 OpenELIS-Global-2 and the analyser Bridge
