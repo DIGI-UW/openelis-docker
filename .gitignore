@@ -26,3 +26,9 @@ configs/database/data/
 **/*checksums*.properties
 configs/properties/TotalSystemConfiguration.properties
 configs/properties/ChangedSystemConfiguration.properties
+
+.env
+/secrets/
+
+__pycache__/
+*.pyc
