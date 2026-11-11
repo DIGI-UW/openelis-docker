@@ -70,3 +70,18 @@ class InstallConfigurationTest(unittest.TestCase):
                 result = self.render(pinned=pinned, ANALYZER_BRIDGE_PAIRING_CODE='')
                 self.assertNotEqual(0, result.returncode)
                 self.assertIn('Set a private ANALYZER_BRIDGE_PAIRING_CODE', result.stderr)
+
+    def test_template_and_release_trust_only_the_bundled_proxy(self):
+        properties = dict(line.split('=', 1) for line in
+                          (ROOT / 'configs/properties/common.properties').read_text().splitlines()
+                          if line and not line.startswith('#') and '=' in line)
+        trusted = properties['org.openelisglobal.login.throttle.trustedProxies']
+        self.assertEqual('172.20.1.122/32', trusted)
+        for pinned in (False, True):
+            services = self.services(pinned=pinned)
+            proxy = services['proxy']['networks']['openelis-network']['ipv4_address']
+            self.assertEqual(trusted, proxy + '/32')
+            for name, service in services.items():
+                if name != 'proxy':
+                    network = service.get('networks', {}).get('openelis-network') or {}
+                    self.assertNotEqual(proxy, network.get('ipv4_address'))
