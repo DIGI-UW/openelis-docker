@@ -358,6 +358,15 @@ module's menu entries appear for the roles that hold its permissions, and
 Admin > Modules lists what was found. Rename the JAR to `.jar.disabled` to
 switch it off; delete it to remove the module.
 
+## CONFIGURATION PACKAGES
+
+A laboratory can add configuration released outside this repository, such as a
+test catalog, as a versioned configuration package. Put the package's pin in
+`configs/configuration-packages/` and run `docker compose up -d`: the
+`configuration-packages` service downloads and checks the package and installs
+its files into `configs/configuration/` before OpenELIS starts. See
+[configs/configuration-packages/README.md](configs/configuration-packages/README.md).
+
 ## Publishing a distribution
 
 OE2 owns image builds, tests and publication. This repository packages configuration

@@ -55,6 +55,29 @@ services:
               target: /etc/ssl/certs/
               volume:
                 nocopy: true
+    # Installs the configuration packages pinned in configs/configuration-packages
+    # into configs/configuration before OpenELIS starts; see the README there.
+    configuration-packages:
+        container_name: openelis-configuration-packages
+        image: python:3.12.12-alpine3.22@sha256:848ba4413eb897e225159b8fc1b02094576cbae4aa73fc13142608ae2c8c0e32
+        platform: linux/amd64
+        restart: "no"
+        entrypoint: ["python3", "/opt/openelis/prepare-configuration-packages.py",
+                     "--pins", "/opt/openelis/configuration-packages",
+                     "--cache", "/opt/openelis/configuration-package-cache",
+                     "--configuration", "/opt/openelis/configuration"]
+        environment:
+            - CONFIGURATION_REGISTRY_USERNAME=${CONFIGURATION_REGISTRY_USERNAME:-}
+            - CONFIGURATION_REGISTRY_TOKEN=${CONFIGURATION_REGISTRY_TOKEN:-}
+        volumes:
+            - ./scripts/prepare-configuration-packages.py:/opt/openelis/prepare-configuration-packages.py:ro
+            - ./configs/configuration-packages:/opt/openelis/configuration-packages:ro
+            - ./configs/configuration-package-cache:/opt/openelis/configuration-package-cache
+            - ./configs/configuration:/opt/openelis/configuration
+        networks:
+            - openelis-network
+        logging: *local-logging
+
     db.openelis.org:
         container_name: openelisglobal-database 
         image: itechuw/openelis-global-2-database:${OE_IMAGE_TAG:?Use a distro release; OE_IMAGE_TAG=develop is only for explicit testing}
@@ -89,6 +112,8 @@ services:
             db.openelis.org:
                 condition: service_started
             certs:
+                condition: service_completed_successfully
+            configuration-packages:
                 condition: service_completed_successfully
         ports:
             - "127.0.0.1:${OE_WEBAPP_HTTP_PORT:-8080}:8080"

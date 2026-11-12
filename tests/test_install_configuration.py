@@ -64,6 +64,19 @@ class InstallConfigurationTest(unittest.TestCase):
         self.assertEqual('explicit-site-code', services['oe.openelis.org']['environment']['ANALYZER_BRIDGE_PAIRING_CODE'])
         self.assertEqual('explicit-site-code', services['openelis-analyzer-bridge']['environment']['BRIDGE_PAIRING_CODE'])
 
+    def test_packages_install_into_the_webapp_configuration_before_it_starts(self):
+        for pinned in (False, True):
+            with self.subTest(pinned=pinned):
+                services = self.services(pinned=pinned)
+                webapp = services['oe.openelis.org']
+                self.assertEqual('service_completed_successfully',
+                                 webapp['depends_on']['configuration-packages']['condition'])
+                installer = {v['target']: v for v in services['configuration-packages']['volumes']}
+                configuration = next(v['source'] for v in webapp['volumes']
+                                     if v['target'] == '/var/lib/openelis-global/configuration')
+                self.assertEqual(configuration, installer['/opt/openelis/configuration']['source'])
+                self.assertTrue(installer['/opt/openelis/configuration-packages']['read_only'])
+
     def test_blank_pairing_code_stops_template_and_release_before_startup(self):
         for pinned in (False, True):
             with self.subTest(pinned=pinned):
