@@ -287,7 +287,8 @@ services:
             # - /etc/openelis-global/nginx.key.pem:/etc/nginx/certs/cert.key
         restart: unless-stopped
         networks:
-            - openelis-network
+            openelis-network:
+                ipv4_address: 172.20.1.122
         logging: *local-logging    
         depends_on:
             certs:

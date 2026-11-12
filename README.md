@@ -73,6 +73,20 @@ The extracted release has the same Compose file and settings as the online downl
 Continue with the shared credential setup below. Keep the package for recovery;
 `images.tar` is only needed when loading images into Docker.
 
+### Reverse proxy configuration
+
+The bundled Nginx proxy uses `172.20.1.122`. The application's
+`org.openelisglobal.login.throttle.trustedProxies` setting in
+`configs/properties/common.properties` trusts only that address, so login attempts
+are counted separately for clients behind it. This configuration is identical
+for online and offline packages.
+
+If you change the network or add an edge proxy, update this setting to the exact
+addresses of your proxies. Each proxy must append its actual peer to
+`X-Forwarded-For`. Do not trust the whole client network. After a network change,
+verify that repeated failed logins from one client do not prevent another client
+from signing in.
+
 ### Configure installation credentials
 
 Copy `.env.example` to `.env` and set different private values for
