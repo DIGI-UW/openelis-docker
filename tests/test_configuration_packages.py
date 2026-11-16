@@ -95,7 +95,7 @@ class ConfigurationPackageTest(unittest.TestCase):
         targets = self.prepare()
         self.assertEqual(2, len(targets))
         self.assertEqual(b"category,entry\nTest,Example\n", targets[0].read_bytes())
-        self.assertEqual("pkg--lab-vocabulary--1.0--catalog.csv", targets[0].name)
+        self.assertEqual("pkg--lab-vocabulary--catalog.csv", targets[0].name)
         self.assertFalse((self.configuration / "evidence").exists())
         self.assertEqual(1, len(list(self.cache.glob("*.zip"))))
 
@@ -105,25 +105,30 @@ class ConfigurationPackageTest(unittest.TestCase):
         self.assertEqual(targets, self.prepare(offline))
         offline.assert_not_called()
 
-    def test_multiple_publishers_and_upgrade_coexist_with_site_files(self):
+    def test_upgrade_replaces_the_package_files_and_keeps_site_and_other_publisher_files(self):
         site = self.configuration / "backend/dictionaries/site.csv"
         site.parent.mkdir(parents=True)
         site.write_text("Local choices")
         previous = self.prepare()
-        self.set_package(version="2.0")
+        changed = dict(self.payload, **{"configuration/backend/dictionaries/catalog.csv": b"category,entry\nTest,Changed\n"})
+        self.set_package(version="2.0", entries=changed)
         upgraded = self.prepare()
         self.set_package(identity="other-publisher")
         other = self.prepare()
         self.assertEqual("Local choices", site.read_text())
-        self.assertEqual(6, len(set(previous + upgraded + other)))
-        self.assertTrue(all(path.exists() for path in previous + upgraded + other))
+        self.assertEqual(previous, upgraded)
+        self.assertEqual(b"category,entry\nTest,Changed\n", upgraded[0].read_bytes())
+        self.assertEqual(5, len(list(self.configuration.rglob("*.csv"))))
+        self.assertTrue(all(path.exists() for path in other))
 
     def test_edited_managed_file_is_preserved_and_conflict_precedes_any_writes(self):
         targets = self.prepare()
         targets[1].write_text("Local edit")
         targets[0].unlink()
-        with self.assertRaisesRegex(ValueError, "conflict"):
-            self.prepare()
+        for version in ("1.0", "2.0"):
+            self.set_package(version=version)
+            with self.assertRaisesRegex(ValueError, "conflict"):
+                self.prepare()
         self.assertEqual("Local edit", targets[1].read_text())
         self.assertFalse(targets[0].exists())
 

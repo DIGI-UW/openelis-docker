@@ -35,7 +35,7 @@ The `configuration-packages` service runs
 `scripts/prepare-configuration-packages.py` before OpenELIS starts. For each
 pin it uses the verified copy in `configs/configuration-package-cache/` or
 downloads the ZIP, checks its SHA-256 and manifest, and installs each file as
-`configs/configuration/backend/<domain>/pkg--<id>--<version>--<filename>`.
+`configs/configuration/backend/<domain>/pkg--<id>--<filename>`.
 OpenELIS then loads those files with its normal configuration loader, which
 runs only when `org.openelisglobal.configuration.autocreate=true` in
 `configs/properties/common.properties`. This distribution ships it as `false`,
@@ -48,9 +48,11 @@ preparation fails, OpenELIS does not start; read why with
 - A restart with unchanged pins uses the cache and needs no network.
 - Without internet, copy the ZIP into `configs/configuration-package-cache/`
   named `<id>--<version>--<sha256>.zip`.
-- To upgrade, change the pin's version, URL and SHA-256. Files and archives of
-  earlier versions stay. Removing a pin removes neither its files nor the
-  records OpenELIS created from them.
+- To upgrade, change the pin's version, URL and SHA-256. The new files replace
+  the earlier ones, so OpenELIS re-imports only the files that changed. Keep
+  earlier archives in the cache: they tell the package's own files from local
+  edits. Removing a pin removes neither its files nor the records OpenELIS
+  created from them.
 - Installing files is not importing records. Check the import summary
   OpenELIS logs for each file.
 

@@ -87,8 +87,8 @@ def configuration_files(content, pin):
                     or not re.fullmatch(NAME, parts[2]) or not re.fullmatch(NAME, parts[3])
                     or PurePosixPath(name).suffix not in {".csv", ".json", ".xml", ".properties"}):
                 raise ValueError("Unsupported configuration path: " + name)
-            # The reserved prefix never overwrites site files and keeps older versions.
-            filename = "pkg--" + pin["id"] + "--" + pin["version"] + "--" + parts[3]
+            # The reserved prefix never overwrites site files; without a version, an upgrade replaces the file.
+            filename = "pkg--" + pin["id"] + "--" + parts[3]
             installed[Path("backend") / parts[2] / filename] = data
         if not installed:
             raise ValueError("Package contains no configuration files")
@@ -178,6 +178,17 @@ def download_oci(url, target):
         os.fsync(output.fileno())
 
 
+def cached_files(cache, pin):
+    known = set()
+    for path in cache.glob(pin["id"] + "--*.zip"):
+        version = path.name[len(pin["id"]) + 2:].rsplit("--", 1)[0]
+        try:
+            known.update(configuration_files(path.read_bytes(), {"id": pin["id"], "version": version}).items())
+        except (ValueError, zipfile.BadZipFile):
+            pass
+    return known
+
+
 def prepare(pin_path, cache, configuration, fetch=download):
     pin = read_pin(pin_path)
     configuration = configuration.resolve()
@@ -202,6 +213,7 @@ def prepare(pin_path, cache, configuration, fetch=download):
         finally:
             temporary.unlink(missing_ok=True)
     files = configuration_files(content, pin)
+    known = cached_files(cache, pin)
     configuration.mkdir(parents=True, exist_ok=True)
     # Validate every destination before writing anything. Never follow a symlink
     # or replace a local customization, including an edited managed file.
@@ -209,13 +221,13 @@ def prepare(pin_path, cache, configuration, fetch=download):
         target = configuration / relative
         if any(p.is_symlink() for p in (target, *target.parents)):
             raise ValueError("Symlink in configuration destination: " + str(target))
-        if target.exists() and (not target.is_file() or target.read_bytes() != data):
+        if target.exists() and (not target.is_file() or (relative, target.read_bytes()) not in known):
             raise ValueError("Configuration conflict; existing file preserved: " + str(target))
     created = []
     try:
         for relative, data in files.items():
             target = configuration / relative
-            if target.exists():
+            if target.exists() and target.read_bytes() == data:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             fd, name = tempfile.mkstemp(prefix=".package-", dir=target.parent)
@@ -226,9 +238,12 @@ def prepare(pin_path, cache, configuration, fetch=download):
                     output.flush()
                     os.fsync(output.fileno())
                 temporary.chmod(0o644)
-                # Link is an atomic no-overwrite publication on this filesystem.
-                os.link(temporary, target)
-                created.append(target)
+                if target.exists():
+                    os.replace(temporary, target)
+                else:
+                    # Link is an atomic no-overwrite publication on this filesystem.
+                    os.link(temporary, target)
+                    created.append(target)
             finally:
                 temporary.unlink(missing_ok=True)
     except Exception:
