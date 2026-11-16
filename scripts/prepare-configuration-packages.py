@@ -21,6 +21,12 @@ import zipfile
 FORMAT = "openelis-configuration/v1"
 MAX_BYTES = 128 * 1024 * 1024
 NAME = r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}"
+LOADER_SETTING = re.compile(r"^[ \t]*org\.openelisglobal\.configuration\.autocreate[ \t]*[=: \t][ \t]*(\S*)", re.M)
+
+
+def loader_disabled(properties):
+    values = LOADER_SETTING.findall(properties.read_text()) if properties.is_file() else []
+    return bool(values) and values[-1].lower() in ("false", "off", "no", "0")
 
 
 def digest(data):
@@ -238,6 +244,7 @@ if __name__ == "__main__":
     parser.add_argument("--pins", type=Path, required=True)
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--configuration", type=Path, required=True)
+    parser.add_argument("--properties", type=Path, required=True)
     args = parser.parse_args()
     try:
         pins = sorted(args.pins.glob("*.json"))
@@ -245,7 +252,8 @@ if __name__ == "__main__":
             print("No external configuration packages pinned")
         for path in pins:
             prepare(path, args.cache, args.configuration)
-        if pins and os.environ.get("OE_CONFIGURATION_AUTOCREATE", "true").lower() != "true":
-            print("Configuration files installed; application import is DISABLED by OE_CONFIGURATION_AUTOCREATE")
+        if pins and loader_disabled(args.properties):
+            print("WARNING: OpenELIS will not import these packages until "
+                  "org.openelisglobal.configuration.autocreate=true in configs/properties/common.properties")
     except Exception as error:
         parser.exit(1, "Configuration package preparation failed: " + str(error) + "\n")

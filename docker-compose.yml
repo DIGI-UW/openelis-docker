@@ -65,7 +65,8 @@ services:
         entrypoint: ["python3", "/opt/openelis/prepare-configuration-packages.py",
                      "--pins", "/opt/openelis/configuration-packages",
                      "--cache", "/opt/openelis/configuration-package-cache",
-                     "--configuration", "/opt/openelis/configuration"]
+                     "--configuration", "/opt/openelis/configuration",
+                     "--properties", "/opt/openelis/common.properties"]
         environment:
             - CONFIGURATION_REGISTRY_USERNAME=${CONFIGURATION_REGISTRY_USERNAME:-}
             - CONFIGURATION_REGISTRY_TOKEN=${CONFIGURATION_REGISTRY_TOKEN:-}
@@ -74,6 +75,7 @@ services:
             - ./configs/configuration-packages:/opt/openelis/configuration-packages:ro
             - ./configs/configuration-package-cache:/opt/openelis/configuration-package-cache
             - ./configs/configuration:/opt/openelis/configuration
+            - ./configs/properties/common.properties:/opt/openelis/common.properties:ro
         networks:
             - openelis-network
         logging: *local-logging

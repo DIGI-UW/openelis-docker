@@ -228,6 +228,20 @@ class ConfigurationPackageTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "non-HTTPS"):
             packages.HTTPSRedirects().redirect_request(None, None, 302, "", {}, "http://example.org/catalog.zip")
 
+    def test_loader_setting_is_read_as_openelis_reads_it(self):
+        properties = self.root / "common.properties"
+        self.assertFalse(packages.loader_disabled(properties))
+        for text, disabled in [("org.openelisglobal.configuration.autocreate=false\n", True),
+                               ("org.openelisglobal.configuration.autocreate = Off\n", True),
+                               ("org.openelisglobal.configuration.autocreate=true\n", False),
+                               ("org.openelisglobal.menu.configuration.autocreate=false\n", False),
+                               ("org.openelisglobal.configuration.autocreate=false\n"
+                                "org.openelisglobal.configuration.autocreate=yes\n", False)]:
+            properties.write_text(text)
+            self.assertEqual(packages.loader_disabled(properties), disabled, text)
+        properties.write_text((ROOT / "configs/properties/common.properties").read_text())
+        self.assertTrue(packages.loader_disabled(properties))
+
 
 if __name__ == "__main__":
     unittest.main()

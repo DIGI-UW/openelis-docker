@@ -364,7 +364,9 @@ A laboratory can add configuration released outside this repository, such as a
 test catalog, as a versioned configuration package. Put the package's pin in
 `configs/configuration-packages/` and run `docker compose up -d`: the
 `configuration-packages` service downloads and checks the package and installs
-its files into `configs/configuration/` before OpenELIS starts. See
+its files into `configs/configuration/` before OpenELIS starts. OpenELIS imports
+them only when `org.openelisglobal.configuration.autocreate=true` in
+`configs/properties/common.properties`, which ships as `false`. See
 [configs/configuration-packages/README.md](configs/configuration-packages/README.md).
 
 ## Publishing a distribution

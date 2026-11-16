@@ -36,7 +36,10 @@ The `configuration-packages` service runs
 pin it uses the verified copy in `configs/configuration-package-cache/` or
 downloads the ZIP, checks its SHA-256 and manifest, and installs each file as
 `configs/configuration/backend/<domain>/pkg--<id>--<version>--<filename>`.
-OpenELIS then loads those files with its normal configuration loader. If
+OpenELIS then loads those files with its normal configuration loader, which
+runs only when `org.openelisglobal.configuration.autocreate=true` in
+`configs/properties/common.properties`. This distribution ships it as `false`,
+and the service logs a warning while packages are pinned and it is off. If
 preparation fails, OpenELIS does not start; read why with
 `docker compose logs configuration-packages`.
 
