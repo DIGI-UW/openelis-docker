@@ -1,4 +1,3 @@
-"""Package installation uses synthetic archives, without network or an OpenELIS database."""
 import hashlib
 import importlib.util
 import io
@@ -48,48 +47,6 @@ class ConfigurationPackageTest(unittest.TestCase):
 
     def prepare(self, fetch=None):
         return packages.prepare(self.pin, self.cache, self.configuration, fetch or self.fetch)
-
-    def oci_fixture(self):
-        layer = {"mediaType": "application/zip", "digest": "sha256:" + packages.digest(self.content),
-                 "size": len(self.content)}
-        manifest = json.dumps({"schemaVersion": 2, "layers": [layer]}).encode()
-        pin = json.loads(self.pin.read_text())
-        pin["url"] = "oci://ghcr.io/example/catalog@sha256:" + packages.digest(manifest)
-        self.pin.write_text(json.dumps(pin))
-        return manifest
-
-    def test_oci_digest_pin_installs_then_restarts_offline(self):
-        manifest = self.oci_fixture()
-        with patch.object(packages, "registry_bytes", side_effect=[b'{"token":"test-token"}', manifest, self.content]) as request:
-            installed = self.prepare(packages.download)
-        self.assertEqual(3, request.call_count)
-        self.assertIn("/manifests/sha256:", request.call_args_list[1].args[0])
-        with patch.object(packages, "registry_bytes", side_effect=AssertionError("Must use verified cache")):
-            self.assertEqual(installed, self.prepare(packages.download))
-
-    def test_oci_rejects_changed_manifest_and_changed_layer_before_install(self):
-        manifest = self.oci_fixture()
-        for responses, message in (
-            ([b'{"token":"test-token"}', manifest + b" "], "manifest differs"),
-            ([b'{"token":"test-token"}', manifest, b"corrupt"], "layer differs"),
-        ):
-            with patch.object(packages, "registry_bytes", side_effect=responses):
-                with self.assertRaisesRegex(ValueError, message):
-                    self.prepare(packages.download)
-            self.assertFalse(self.configuration.exists())
-
-    def test_oci_cannot_use_a_tag_or_send_credentials_to_another_registry(self):
-        for url in ("oci://ghcr.io/example/catalog:latest", "oci://other.example/a@sha256:" + "a" * 64,
-                    "oci://user:password@ghcr.io/a@sha256:" + "a" * 64):
-            with self.assertRaisesRegex(ValueError, "OCI package"):
-                packages.oci_reference(url)
-
-    def test_registry_authentication_is_not_forwarded_to_blob_redirects(self):
-        request = packages.urllib.request.Request("https://ghcr.io/v2/example/blobs/sha256:abc",
-                                                 headers={"Authorization": "Bearer example"})
-        redirected = packages.HTTPSRedirects().redirect_request(
-            request, None, 302, "Found", {}, "https://storage.example/blob")
-        self.assertIsNone(redirected.get_header("Authorization"))
 
     def test_installs_normal_config_files_and_keeps_evidence_outside_scan(self):
         targets = self.prepare()

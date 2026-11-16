@@ -5,7 +5,6 @@ Nothing is imported here: OpenELIS loads the installed files with its normal
 configuration loader. Files under evidence/ stay in the cached archive.
 """
 import argparse
-import base64
 import hashlib
 import io
 import json
@@ -44,10 +43,8 @@ def read_pin(path):
     if not re.fullmatch(r"[a-f0-9]{64}", pin["sha256"]):
         raise ValueError("Package requires a reviewed SHA-256")
     url = urllib.parse.urlsplit(pin["url"])
-    if url.scheme == "oci":
-        oci_reference(pin["url"])
-    elif url.scheme != "https" or not url.hostname or url.username or url.password or url.fragment:
-        raise ValueError("Package URL must be HTTPS or digest-pinned GHCR OCI without credentials")
+    if url.scheme != "https" or not url.hostname or url.username or url.password or url.fragment:
+        raise ValueError("Package URL must be HTTPS without credentials")
     return pin
 
 
@@ -99,15 +96,10 @@ class HTTPSRedirects(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if urllib.parse.urlsplit(newurl).scheme != "https":
             raise ValueError("Package download refused a non-HTTPS redirect")
-        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
-        if redirected is not None:
-            redirected.remove_header("Authorization")
-        return redirected
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def download(url, target):
-    if url.startswith("oci:"):
-        return download_oci(url, target)
     opener = urllib.request.build_opener(HTTPSRedirects())
     with opener.open(url, timeout=60) as response, target.open("wb") as output:
         size = 0
@@ -119,61 +111,6 @@ def download(url, target):
             if size > MAX_BYTES:
                 raise ValueError("Package exceeds size limit")
             output.write(chunk)
-        output.flush()
-        os.fsync(output.fileno())
-
-
-def oci_reference(url):
-    parsed = urllib.parse.urlsplit(url)
-    match = re.fullmatch(r"/([a-z0-9][a-z0-9._/-]*)@sha256:([a-f0-9]{64})", parsed.path)
-    if (parsed.scheme != "oci" or parsed.netloc != "ghcr.io" or not match
-            or parsed.query or parsed.fragment or ".." in parsed.path):
-        raise ValueError("OCI package must be ghcr.io/repository@sha256:<digest>")
-    return match.group(1), match.group(2)
-
-
-def registry_bytes(url, headers, limit):
-    opener = urllib.request.build_opener(HTTPSRedirects())
-    with opener.open(urllib.request.Request(url, headers=headers), timeout=60) as response:
-        content = response.read(limit + 1)
-    if len(content) > limit:
-        raise ValueError("Registry response exceeds size limit")
-    return content
-
-
-def download_oci(url, target):
-    repository, manifest_digest = oci_reference(url)
-    headers = {}
-    username = os.environ.get("CONFIGURATION_REGISTRY_USERNAME", "")
-    password = os.environ.get("CONFIGURATION_REGISTRY_TOKEN", "")
-    if bool(username) != bool(password):
-        raise ValueError("Private packages require both registry username and token")
-    if username:
-        headers["Authorization"] = "Basic " + base64.b64encode(
-            (username + ":" + password).encode()).decode()
-    token_url = "https://ghcr.io/token?" + urllib.parse.urlencode({
-        "service": "ghcr.io", "scope": "repository:" + repository + ":pull"})
-    token = json.loads(registry_bytes(token_url, headers, 65536))["token"]
-    headers = {"Authorization": "Bearer " + token,
-               "Accept": "application/vnd.oci.image.manifest.v1+json"}
-    base = "https://ghcr.io/v2/" + repository
-    raw = registry_bytes(base + "/manifests/sha256:" + manifest_digest, headers, 1024 * 1024)
-    if digest(raw) != manifest_digest:
-        raise ValueError("OCI manifest differs from immutable pin")
-    manifest = json.loads(raw)
-    layers = manifest.get("layers", [])
-    if (manifest.get("schemaVersion") != 2 or len(layers) != 1
-            or layers[0].get("mediaType") != "application/zip"):
-        raise ValueError("Configuration artifact must have exactly one ZIP layer")
-    layer = layers[0]
-    if (not re.fullmatch(r"sha256:[a-f0-9]{64}", layer.get("digest", ""))
-            or not isinstance(layer.get("size"), int) or not 0 < layer["size"] <= MAX_BYTES):
-        raise ValueError("Invalid configuration layer descriptor")
-    content = registry_bytes(base + "/blobs/" + layer["digest"], headers, MAX_BYTES)
-    if len(content) != layer["size"] or "sha256:" + digest(content) != layer["digest"]:
-        raise ValueError("OCI layer differs from manifest")
-    with target.open("wb") as output:
-        output.write(content)
         output.flush()
         os.fsync(output.fileno())
 
@@ -202,8 +139,6 @@ def prepare(pin_path, cache, configuration, fetch=download):
         temporary = Path(name)
         try:
             fetch(pin["url"], temporary)
-            if temporary.stat().st_size > MAX_BYTES:
-                raise ValueError("Package exceeds size limit")
             content = temporary.read_bytes()
             if digest(content) != pin["sha256"]:
                 raise ValueError("Package checksum differs from pin")
@@ -215,8 +150,7 @@ def prepare(pin_path, cache, configuration, fetch=download):
     files = configuration_files(content, pin)
     known = cached_files(cache, pin)
     configuration.mkdir(parents=True, exist_ok=True)
-    # Validate every destination before writing anything. Never follow a symlink
-    # or replace a local customization, including an edited managed file.
+    # Check every destination before writing any file.
     for relative, data in files.items():
         target = configuration / relative
         if any(p.is_symlink() for p in (target, *target.parents)):
@@ -270,5 +204,5 @@ if __name__ == "__main__":
         if pins and loader_disabled(args.properties):
             print("WARNING: OpenELIS will not import these packages until "
                   "org.openelisglobal.configuration.autocreate=true in configs/properties/common.properties")
-    except Exception as error:
+    except (ValueError, OSError) as error:
         parser.exit(1, "Configuration package preparation failed: " + str(error) + "\n")

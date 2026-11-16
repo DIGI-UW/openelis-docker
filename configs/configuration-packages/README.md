@@ -19,11 +19,8 @@ Put one JSON file per package in this folder, for example
 ```
 
 A pin has exactly these four string fields. `url` is an immutable HTTPS
-release URL, or a GHCR digest `oci://ghcr.io/<owner>/<package>@sha256:<manifest digest>`
-whose artifact has exactly one `application/zip` layer. `id` and `version`
-must match the package's own manifest. A pin never holds credentials: for a
-private GHCR package set `CONFIGURATION_REGISTRY_USERNAME` and
-`CONFIGURATION_REGISTRY_TOKEN` in `.env`.
+release URL without credentials. `id` and `version` must match the package's
+own manifest.
 
 Then start as usual:
 

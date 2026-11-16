@@ -67,9 +67,6 @@ services:
                      "--cache", "/opt/openelis/configuration-package-cache",
                      "--configuration", "/opt/openelis/configuration",
                      "--properties", "/opt/openelis/common.properties"]
-        environment:
-            - CONFIGURATION_REGISTRY_USERNAME=${CONFIGURATION_REGISTRY_USERNAME:-}
-            - CONFIGURATION_REGISTRY_TOKEN=${CONFIGURATION_REGISTRY_TOKEN:-}
         volumes:
             - ./scripts/prepare-configuration-packages.py:/opt/openelis/prepare-configuration-packages.py:ro
             - ./configs/configuration-packages:/opt/openelis/configuration-packages:ro
