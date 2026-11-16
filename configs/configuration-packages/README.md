@@ -29,6 +29,11 @@ Then start as usual:
 
     docker compose up -d
 
+OpenELIS reads configuration only when it starts. If it was already running,
+restart it after adding or changing a pin:
+
+    docker compose restart oe.openelis.org
+
 ## What happens at startup
 
 The `configuration-packages` service runs

@@ -366,7 +366,9 @@ test catalog, as a versioned configuration package. Put the package's pin in
 `configuration-packages` service downloads and checks the package and installs
 its files into `configs/configuration/` before OpenELIS starts. OpenELIS imports
 them only when `org.openelisglobal.configuration.autocreate=true` in
-`configs/properties/common.properties`, which ships as `false`. See
+`configs/properties/common.properties`, which ships as `false`. OpenELIS reads
+configuration only when it starts, so after a pin change on a running system
+also run `docker compose restart oe.openelis.org`. See
 [configs/configuration-packages/README.md](configs/configuration-packages/README.md).
 
 ## Publishing a distribution
