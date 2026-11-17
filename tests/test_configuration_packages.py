@@ -1,0 +1,209 @@
+import hashlib
+import importlib.util
+import io
+import json
+from pathlib import Path
+import stat
+import tempfile
+import unittest
+from unittest.mock import Mock, patch
+import zipfile
+
+from test_release_manifest import ROOT
+
+spec = importlib.util.spec_from_file_location("packages", ROOT / "scripts/prepare-configuration-packages.py")
+packages = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(packages)
+
+
+class ConfigurationPackageTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.pin = self.root / "pin.json"
+        self.cache = self.root / "cache"
+        self.configuration = self.root / "configuration"
+        self.payload = {"configuration/backend/dictionaries/catalog.csv": b"category,entry\nTest,Example\n",
+                        "configuration/backend/roles/roles.csv": b"name\nExample\n",
+                        "evidence/NOTICE.txt": b"Synthetic metadata"}
+        self.set_package()
+        self.fetch = Mock(side_effect=lambda url, path: path.write_bytes(self.content))
+
+    def set_package(self, identity="lab-vocabulary", version="1.0", entries=None):
+        entries = entries or self.payload
+        manifest = {"format": packages.FORMAT, "packageId": identity, "packageVersion": version,
+                    "files": {name: {"sha256": packages.digest(data), "bytes": len(data)}
+                              for name, data in entries.items()}}
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w") as archive:
+            for name, data in entries.items():
+                archive.writestr(name, data)
+            archive.writestr("manifest.json", json.dumps(manifest))
+        self.content = output.getvalue()
+        self.pin.write_text(json.dumps({"id": identity, "version": version,
+            "url": "https://metadata.example.org/releases/" + identity + "/" + version + "/metadata.zip",
+            "sha256": packages.digest(self.content)}))
+
+    def prepare(self, fetch=None):
+        return packages.prepare(self.pin, self.cache, self.configuration, fetch or self.fetch)
+
+    def test_installs_normal_config_files_and_keeps_evidence_outside_scan(self):
+        targets = self.prepare()
+        self.assertEqual(2, len(targets))
+        self.assertEqual(b"category,entry\nTest,Example\n", targets[0].read_bytes())
+        self.assertEqual("pkg--lab-vocabulary--catalog.csv", targets[0].name)
+        self.assertFalse((self.configuration / "evidence").exists())
+        self.assertEqual(1, len(list(self.cache.glob("*.zip"))))
+
+    def test_restart_reuses_verified_cache_without_network(self):
+        targets = self.prepare()
+        offline = Mock(side_effect=OSError("offline"))
+        self.assertEqual(targets, self.prepare(offline))
+        offline.assert_not_called()
+
+    def test_upgrade_replaces_the_package_files_and_keeps_site_and_other_publisher_files(self):
+        site = self.configuration / "backend/dictionaries/site.csv"
+        site.parent.mkdir(parents=True)
+        site.write_text("Local choices")
+        previous = self.prepare()
+        changed = dict(self.payload, **{"configuration/backend/dictionaries/catalog.csv": b"category,entry\nTest,Changed\n"})
+        self.set_package(version="2.0", entries=changed)
+        upgraded = self.prepare()
+        self.set_package(identity="other-publisher")
+        other = self.prepare()
+        self.assertEqual("Local choices", site.read_text())
+        self.assertEqual(previous, upgraded)
+        self.assertEqual(b"category,entry\nTest,Changed\n", upgraded[0].read_bytes())
+        self.assertEqual(5, len(list(self.configuration.rglob("*.csv"))))
+        self.assertTrue(all(path.exists() for path in other))
+
+    def test_edited_managed_file_is_preserved_and_conflict_precedes_any_writes(self):
+        targets = self.prepare()
+        targets[1].write_text("Local edit")
+        targets[0].unlink()
+        for version in ("1.0", "2.0"):
+            self.set_package(version=version)
+            with self.assertRaisesRegex(ValueError, "conflict"):
+                self.prepare()
+        self.assertEqual("Local edit", targets[1].read_text())
+        self.assertFalse(targets[0].exists())
+
+    def test_wrong_checksum_never_installs_and_retains_prior_version(self):
+        previous = self.prepare()
+        self.set_package(version="2.0")
+        with self.assertRaisesRegex(ValueError, "checksum differs"):
+            self.prepare(Mock(side_effect=lambda url, path: path.write_bytes(b"bad")))
+        self.assertTrue(all(path.exists() for path in previous))
+        self.assertFalse(list(self.cache.glob(".download-*")))
+        self.assertEqual(2, len(list(self.configuration.rglob("*.csv"))))
+
+    def test_interruption_cleans_partial_download_and_retry_works(self):
+        def interrupted(url, path):
+            path.write_bytes(b"partial")
+            raise OSError("interrupted")
+        with self.assertRaisesRegex(OSError, "interrupted"):
+            self.prepare(Mock(side_effect=interrupted))
+        self.assertEqual([], list(self.cache.iterdir()))
+        self.assertEqual(2, len(self.prepare()))
+
+    def test_failed_publication_removes_only_files_created_in_that_attempt(self):
+        real_link = packages.os.link
+        calls = []
+        def fail_second(source, target):
+            calls.append(target)
+            if len(calls) == 2:
+                raise OSError("disk failure")
+            return real_link(source, target)
+        with patch.object(packages.os, "link", side_effect=fail_second):
+            with self.assertRaisesRegex(OSError, "disk failure"):
+                self.prepare()
+        self.assertFalse(list(self.configuration.rglob("*.csv")))
+        self.assertFalse(list(self.configuration.rglob(".package-*")))
+        self.assertEqual(2, len(self.prepare()))
+
+    def test_corrupt_cache_is_repaired(self):
+        self.prepare()
+        cached = next(self.cache.glob("*.zip"))
+        cached.write_bytes(b"broken")
+        self.prepare()
+        self.assertEqual(self.content, cached.read_bytes())
+        self.assertEqual(2, self.fetch.call_count)
+
+    def test_manifest_identity_must_match_pin(self):
+        pin = json.loads(self.pin.read_text())
+        pin["version"] = "different"
+        self.pin.write_text(json.dumps(pin))
+        with self.assertRaisesRegex(ValueError, "manifest differs"):
+            self.prepare()
+        self.assertFalse(self.configuration.exists())
+
+    def test_path_traversal_or_unrecognized_install_locations_are_rejected(self):
+        for name in ("../escape.csv", "/absolute.csv", "configuration/backend/../escape.csv",
+                     "configuration/backend/dictionaries/code.sh", "configuration/backend/dictionaries/a/b.csv"):
+            self.set_package(entries={name: b"bad"})
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.prepare()
+        self.assertFalse(self.configuration.exists())
+
+    def test_symlink_destination_is_not_followed(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (self.configuration / "backend").mkdir(parents=True)
+        (self.configuration / "backend/dictionaries").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "Symlink"):
+            self.prepare()
+        self.assertEqual([], list(outside.iterdir()))
+
+    def test_duplicate_and_symlink_archive_entries_are_rejected(self):
+        for symlink in (False, True):
+            output = io.BytesIO(self.content)
+            with zipfile.ZipFile(output, "a") as archive:
+                if symlink:
+                    entry = zipfile.ZipInfo("evidence/link")
+                    entry.create_system = 3
+                    entry.external_attr = (stat.S_IFLNK | 0o777) << 16
+                    archive.writestr(entry, "/outside")
+                else:
+                    archive.writestr("manifest.json", "{}")
+            pin = json.loads(self.pin.read_text())
+            with self.subTest(symlink=symlink), self.assertRaises(ValueError):
+                packages.configuration_files(output.getvalue(), pin)
+
+    def test_manifest_payload_hashes_are_checked(self):
+        pin = json.loads(self.pin.read_text())
+        output = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(self.content)) as source, zipfile.ZipFile(output, "w") as target:
+            for name in source.namelist():
+                data = source.read(name)
+                target.writestr(name, data + b"bad" if name.endswith("catalog.csv") else data)
+        with self.assertRaisesRegex(ValueError, "Payload checksum"):
+            packages.configuration_files(output.getvalue(), pin)
+
+    def test_https_is_required_for_download_and_redirect(self):
+        pin = json.loads(self.pin.read_text())
+        pin["url"] = "http://example.org/catalog.zip"
+        self.pin.write_text(json.dumps(pin))
+        with self.assertRaisesRegex(ValueError, "HTTPS"):
+            self.prepare()
+        self.fetch.assert_not_called()
+        with self.assertRaisesRegex(ValueError, "non-HTTPS"):
+            packages.HTTPSRedirects().redirect_request(None, None, 302, "", {}, "http://example.org/catalog.zip")
+
+    def test_loader_setting_is_read_as_openelis_reads_it(self):
+        properties = self.root / "common.properties"
+        self.assertFalse(packages.loader_disabled(properties))
+        for text, disabled in [("org.openelisglobal.configuration.autocreate=false\n", True),
+                               ("org.openelisglobal.configuration.autocreate = Off\n", True),
+                               ("org.openelisglobal.configuration.autocreate=true\n", False),
+                               ("org.openelisglobal.menu.configuration.autocreate=false\n", False),
+                               ("org.openelisglobal.configuration.autocreate=false\n"
+                                "org.openelisglobal.configuration.autocreate=yes\n", False)]:
+            properties.write_text(text)
+            self.assertEqual(packages.loader_disabled(properties), disabled, text)
+        properties.write_text((ROOT / "configs/properties/common.properties").read_text())
+        self.assertTrue(packages.loader_disabled(properties))
+
+
+if __name__ == "__main__":
+    unittest.main()

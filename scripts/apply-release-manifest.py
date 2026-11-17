@@ -11,8 +11,9 @@ SERVICES = {
     "proxy": "-proxy", "certs": "-certs", "openelis-analyzer-bridge": "-analyzer-bridge",
     "astm-simulator": "-analyzer-mock",
 }
-# autoheal is distribution tooling, not an OE2 build output.
+# autoheal and the configuration package installer are distribution tooling, not OE2 build outputs.
 AUTOHEAL = "willfarrell/autoheal:1.2.0@sha256:31f580ef0279eaced5b38d631b08c474d70d8403c1c2fdd6ddcf2e879d5f3f7c"
+PYTHON = "python:3.12.12-alpine3.22@sha256:848ba4413eb897e225159b8fc1b02094576cbae4aa73fc13142608ae2c8c0e32"
 
 
 def unique_object(pairs):
@@ -43,6 +44,7 @@ def render(source, manifest, version, commit):
     expected = {key: value for key, value in images.items() if key != "astm-simulator"}
     expected["analyzer-imports-owner"] = images["openelis-analyzer-bridge"]
     expected["autoheal"] = AUTOHEAL
+    expected["configuration-packages"] = PYTHON
     # Keep operator-facing comments and layout; replace only image scalar lines
     # in this repository's four-space-indented service definitions.
     current = None

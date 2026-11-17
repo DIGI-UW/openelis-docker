@@ -88,17 +88,17 @@ if a[0] == 'exec' and 'load' in a: sys.stdin.buffer.read()
             self.assertNotIn(prefix + '.env', bundle.getnames())
             self.assertNotIn(prefix + 'secrets/key', bundle.getnames())
             refs = bundle.extractfile(prefix + 'images.txt').read().decode().splitlines()
-            self.assertEqual(8, len(refs))  # seven OE2 images plus autoheal; no mock
+            self.assertEqual(9, len(refs))  # seven OE2 images, autoheal and the package installer; no mock
             self.assertFalse(any('analyzer-mock' in ref for ref in refs))
         calls = [json.loads(line) for line in self.record.read_text().splitlines()]
         self.assertEqual(set(refs), {a[-1] for a in calls if a[:3] == ['pull', '--platform', 'linux/amd64']})
         self.assertEqual(set(refs), {a[-1] for a in calls if a[0] == 'exec' and 'inspect' in a})
         saved = next(a for a in calls if a[:2] == ['image', 'save'])
         self.assertNotIn('--platform', saved)  # must retain the original index digest
-        self.assertEqual(8, len(saved[4:]))
+        self.assertEqual(9, len(saved[4:]))
         self.assertTrue(all(':offline-' in ref for ref in saved[4:]))
         self.assertTrue(any(a[0] == 'run' and '--network' in a and 'none' in a for a in calls))
-        self.assertEqual(8, sum(a[0] == 'exec' and 'start' in a for a in calls))
+        self.assertEqual(9, sum(a[0] == 'exec' and 'start' in a for a in calls))
 
     def test_missing_image_does_not_produce_a_complete_package(self):
         self.env['MISSING'] = '1'
