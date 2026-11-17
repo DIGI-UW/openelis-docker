@@ -256,6 +256,23 @@ sign-on callbacks, FHIR links), so they keep a port such as 8443. It reads
 them only from connections on a private network or loopback address, where
 its own proxy sits. This needs OpenELIS-Global-2 3.4.0 or later.
 
+### Outbound clinical-data settings
+
+The template leaves the mail sender and blind-copy recipient empty and disables
+HTTP FHIR subscribers. Configure only the laboratory's intended sender and
+recipients in `configs/properties/common.properties`. Use an explicit HTTPS
+subscriber URL. Online and offline packages contain the same settings.
+
+Existing installations retain their configuration when images change. Review
+`org.openelisglobal.mail.from`, `org.openelisglobal.mail.bcc` and
+`org.openelisglobal.fhir.subscriber.allowHTTP` before upgrading. Clear any bundled
+address that was never an intended recipient. Clearing a subscriber setting does
+not remove previously registered FHIR subscriptions or queued export jobs; review
+those registrations separately. SMTP certificate checks and subscriber URL
+validation also require an OE2 release containing
+[the outbound delivery fix](https://github.com/DIGI-UW/OpenELIS-Global-2/pull/5043).
+Changing this template does not update existing release tags or running sites.
+
 ### Upgrades and recovery for either path
 
 Back up the database, configuration, keys and Bridge state using

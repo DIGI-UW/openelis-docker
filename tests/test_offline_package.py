@@ -33,6 +33,9 @@ class OfflinePackageTest(unittest.TestCase):
         shutil.copyfile(ROOT / '.env.example', self.repo / '.env.example')
         (self.repo / 'configs/database').mkdir(parents=True)
         shutil.copyfile(ROOT / 'configs/database/database.env', self.repo / 'configs/database/database.env')
+        (self.repo / 'configs/properties').mkdir()
+        shutil.copyfile(ROOT / 'configs/properties/common.properties',
+                        self.repo / 'configs/properties/common.properties')
         for directory, names in [('scripts', ['apply-release-manifest.py', 'package-offline.sh']),
                                  ('tests', ['offline-roundtrip.sh'])]:
             (self.repo / directory).mkdir()
@@ -83,7 +86,8 @@ if a[0] == 'exec' and 'load' in a: sys.stdin.buffer.read()
         archive = gzip.decompress(b''.join(p.read_bytes() for p in pieces))
         with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
             prefix = 'openelis-3.4.0/'
-            for name in ['docker-compose.yml', 'deployment-manifest.json', '.env.example']:
+            for name in ['docker-compose.yml', 'deployment-manifest.json', '.env.example',
+                         'configs/properties/common.properties']:
                 self.assertEqual((self.repo / name).read_bytes(), bundle.extractfile(prefix + name).read())
             self.assertNotIn(prefix + '.env', bundle.getnames())
             self.assertNotIn(prefix + 'secrets/key', bundle.getnames())
