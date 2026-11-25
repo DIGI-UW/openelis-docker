@@ -50,6 +50,20 @@ class InstallConfigurationTest(unittest.TestCase):
                     self.assertEqual(expected, {int(p['published']) for p in ports})
                     self.assertTrue(all(p.get('host_ip', '0.0.0.0') == '0.0.0.0' for p in ports))
 
+    def test_pairing_shares_only_the_public_certificate_with_openelis(self):
+        for pinned in (False, True):
+            services = self.services(pinned=pinned)
+            for name, setting, read_only in (
+                    ('oe.openelis.org', 'ANALYZER_BRIDGE_PAIRING_CERTIFICATE_FILE', True),
+                    ('openelis-analyzer-bridge', 'BRIDGE_PAIRING_CERTIFICATE_FILE', False)):
+                service = services[name]
+                certificate = Path(service['environment'][setting])
+                mount = next(v for v in service['volumes'] if v['target'] == str(certificate.parent))
+                self.assertEqual('bridge.crt', certificate.name)
+                self.assertEqual('bridge-public', mount['source'])
+                self.assertEqual(read_only, mount.get('read_only', False))
+            self.assertNotIn('bridge-state', [v.get('source') for v in services['oe.openelis.org']['volumes']])
+
     def test_site_timezone_and_custom_ports_do_not_remove_isolation(self):
         services = self.services(pinned=True, TZ='Pacific/Port_Moresby',
                                  OE_WEBAPP_HTTP_PORT='18080', OE_WEBAPP_HTTPS_PORT='18443',

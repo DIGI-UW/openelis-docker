@@ -137,8 +137,10 @@ services:
             - OE_ENCRYPTION_PASSWORD=${OE_ENCRYPTION_PASSWORD:-}
              # The analyser Bridge, and the code OpenELIS pairs with it on start
             - ANALYZER_BRIDGE_URL=https://bridge.openelis.org:8443
+            - ANALYZER_BRIDGE_PAIRING_CERTIFICATE_FILE=/data/bridge-public/bridge.crt
             - ANALYZER_BRIDGE_PAIRING_CODE=${ANALYZER_BRIDGE_PAIRING_CODE:?Set a private ANALYZER_BRIDGE_PAIRING_CODE in .env}
         volumes:
+            - bridge-public:/data/bridge-public:ro
             - type: volume
               source: key_trust-store-volume
               target: /etc/openelis-global
@@ -208,9 +210,11 @@ services:
             # connections and the results OpenELIS has not accepted yet. It must
             # survive container recreation and upgrades, or OpenELIS no longer
             # recognises the Bridge and undelivered results are lost.
+            - bridge-public:/data/bridge-public
             - bridge-state:/data/openelis-analyzer-bridge
         environment:
             - TZ=${TZ:-America/New_York}
+            - BRIDGE_PAIRING_CERTIFICATE_FILE=/data/bridge-public/bridge.crt
             - BRIDGE_PAIRING_CODE=${ANALYZER_BRIDGE_PAIRING_CODE:?Set a private ANALYZER_BRIDGE_PAIRING_CODE in .env}
             - BRIDGE_FILE_ENABLED=true
             - BRIDGE_FILE_STATE_STORE_PATH=/data/openelis-analyzer-bridge/state.db
@@ -352,3 +356,4 @@ volumes:
   keys-vol:
   lucene_index-vol:
   bridge-state:
+  bridge-public:
