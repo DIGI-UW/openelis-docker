@@ -305,15 +305,17 @@ Analysers connect to the analyser Bridge (`openelis-analyzer-bridge`), which
 the stack starts with OpenELIS; the Analysers pages in OpenELIS set them up
 through it. Since 3.3.0 the Bridge is the only way analysers reach OpenELIS.
 
-- OpenELIS pairs with the Bridge when it starts, using
-  `ANALYZER_BRIDGE_PAIRING_CODE` from `.env`. Generate a private value
-  before the first start, for example with `openssl rand -hex 24`. To pair again (for example after
-  the Bridge's volume was deleted), choose **Pair again** on the Analysers
-  page and enter the code from `.env`.
-- An online installation started with `docker compose up -d` has no code
-  until you set one: put a private random value in `ANALYZER_BRIDGE_PAIRING_CODE` in
-  `.env` before the first start, or enter the code the Bridge logs
-  (`docker logs openelis-analyzer-bridge`) on the Analysers page.
+- Set a private `ANALYZER_BRIDGE_PAIRING_CODE` in `.env` before the first
+  start. You can generate one with `openssl rand -hex 24`. OpenELIS reads
+  the Bridge's public certificate from the read-only `bridge-public` volume,
+  verifies the Bridge over HTTPS, and sends the code. Ordinary restarts reuse
+  the pairing. If the certificate changes, confirm the replacement on the
+  Bridge host, configure a fresh code, and select **Pair again** on the
+  Analysers page.
+- For a remote Bridge, override `ANALYZER_BRIDGE_URL` with its HTTPS URL and
+  clear `ANALYZER_BRIDGE_PAIRING_CERTIFICATE_FILE` in the OpenELIS service.
+  A Global Admin enters the pairing code and full SHA-256 fingerprint from
+  the trusted remote Bridge host's startup log.
 - Analysers on the lab network send to the host on port 12001 (ASTM LIS01-A
   over TCP), 12011 (ASTM E1381) or 2575 (HL7 v2 over MLLP). File-based
   analysers drop their result files into a folder under
